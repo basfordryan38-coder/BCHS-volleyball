@@ -1573,7 +1573,7 @@ function nextSet() {
   showToast(`Set ${state.currentSet} started`);
 }
 
-
+function endMatch() {
   if (!confirm('End this match and mark it complete?')) return;
   state.games[state.activeGameId].complete = true;
   state.activeGameId = null;
@@ -1805,6 +1805,7 @@ function renderStatsScoreSummary() {
 }
 
 
+function selectStatsGame(id) {
   state.statsGameId = id;
   renderStatsView();
 }
