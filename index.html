@@ -1067,7 +1067,25 @@
   </div>
 
   <div class="setup-card">
-    <h2>👥 Manage Roster</h2>
+    <h2>👥 Bulk Import Roster</h2>
+    <div class="form-row">
+      <label>Team</label>
+      <select id="bulkTeamSelect">
+        <option value="varsity">Varsity</option>
+        <option value="jv">JV</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Paste Roster — one player per line: <span style="color:var(--text-muted);font-weight:400;">number, name, position</span></label>
+      <textarea id="bulkRosterInput" rows="12" placeholder="1, Kura Iiyoshi, S/RS&#10;2, Bryan Beltran, DS&#10;7, Kristian Karigambe, OH&#10;..." style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-family:'Barlow',sans-serif;font-size:0.85rem;outline:none;resize:vertical;line-height:1.6;"></textarea>
+    </div>
+    <button class="btn-primary" onclick="bulkImportRoster()" style="margin-bottom:8px;">Import Roster → Firebase</button>
+    <button class="btn-secondary" style="width:100%;text-align:center;" onclick="prefillBulkRoster()">📋 Load Current Roster to Edit</button>
+    <div id="bulkImportStatus" style="margin-top:10px;font-size:0.8rem;color:var(--text-muted);"></div>
+  </div>
+
+  <div class="setup-card">
+    <h2>➕ Add Single Player</h2>
     <div class="form-row">
       <label>Team</label>
       <select id="rosterTeamSelect">
@@ -1748,9 +1766,51 @@ function renderGamesList() {
   `).join('');
 }
 
-// ═══════════════════════════════════════════
-// ROSTER MANAGEMENT
-// ═══════════════════════════════════════════
+function bulkImportRoster() {
+  const team = document.getElementById('bulkTeamSelect').value;
+  const raw = document.getElementById('bulkRosterInput').value.trim();
+  const statusEl = document.getElementById('bulkImportStatus');
+  if (!raw) { statusEl.textContent = '⚠ Paste a roster first.'; return; }
+
+  const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const players = [];
+  const errors = [];
+
+  lines.forEach((line, i) => {
+    // Support comma or tab separated
+    const parts = line.split(/,|\t/).map(p => p.trim());
+    if (parts.length < 2) { errors.push(`Line ${i+1}: "${line}"`); return; }
+    const num = parseInt(parts[0]);
+    if (isNaN(num)) { errors.push(`Line ${i+1}: bad number "${parts[0]}"`); return; }
+    const name = parts[1];
+    const pos = parts[2] || 'OH';
+    players.push({ num, name, pos });
+  });
+
+  if (!players.length) {
+    statusEl.textContent = '⚠ No valid players found. Check format.';
+    return;
+  }
+
+  players.sort((a,b) => a.num - b.num);
+  state.roster[team] = players;
+  saveToFirebase();
+  renderAll();
+
+  const msg = `✓ Imported ${players.length} players to ${team}${errors.length ? ` (${errors.length} skipped)` : ''}`;
+  statusEl.style.color = errors.length ? 'var(--orange)' : 'var(--green)';
+  statusEl.textContent = msg;
+  showToast(msg);
+}
+
+function prefillBulkRoster() {
+  const team = document.getElementById('bulkTeamSelect').value;
+  const roster = state.roster[team] || [];
+  if (!roster.length) { showToast('No roster loaded yet'); return; }
+  document.getElementById('bulkRosterInput').value = roster.map(p => `${p.num}, ${p.name}, ${p.pos}`).join('\n');
+}
+
+
 function addPlayer() {
   const team = document.getElementById('rosterTeamSelect').value;
   const num = parseInt(document.getElementById('rosterNum').value);
