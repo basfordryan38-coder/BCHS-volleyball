@@ -812,7 +812,49 @@
     margin-top: 2px;
   }
 
-  @media (max-width: 380px) {
+  .score-summary {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .score-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    text-align: center;
+    min-width: 80px;
+  }
+  .score-chip.win { border-color: var(--green); background: rgba(34,197,94,0.08); }
+  .score-chip.loss { border-color: #ef4444; background: rgba(239,68,68,0.08); }
+  .score-chip .sc-set {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    display: block;
+  }
+  .score-chip .sc-score {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 900;
+    display: block;
+    line-height: 1.2;
+  }
+  .score-chip.win .sc-score { color: var(--green); }
+  .score-chip.loss .sc-score { color: #ef4444; }
+  .score-chip .sc-result {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  .score-chip.win .sc-result { color: var(--green); }
+  .score-chip.loss .sc-result { color: #ef4444; }
+
+
     .stat-grid { grid-template-columns: 1fr 1fr; }
     .pc-stats-grid { grid-template-columns: repeat(3, 1fr); }
   }
@@ -893,13 +935,40 @@
         <div class="set-label">Current Set</div>
         <div class="set-num" id="currentSetNum">1</div>
         <div class="set-controls">
-          <button class="set-btn" onclick="nextSet()">Next Set →</button>
-          <button class="set-btn danger" onclick="endMatch()">End Match</button>
+          <button class="set-btn" onclick="promptNextSet()">Next Set →</button>
+          <button class="set-btn danger" onclick="promptEndMatch()">End Match</button>
         </div>
       </div>
     </div>
 
 ```
+<!-- Set Score Summary -->
+<div id="setScoreSummary" style="display:none;margin-bottom:12px;"></div>
+
+<!-- Set Score Entry -->
+<div class="setup-card" style="margin-bottom:14px;padding:14px 16px;">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+    <span style="font-family:'Barlow Condensed',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);">Set <span id="scoreSetLabel">1</span> Final Score</span>
+    <span id="setResultBadge" style="display:none;font-family:'Barlow Condensed',sans-serif;font-size:0.75rem;font-weight:700;letter-spacing:0.1em;padding:2px 8px;border-radius:4px;"></span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <div style="flex:1;text-align:center;">
+      <div style="font-size:0.65rem;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#4A90D9;margin-bottom:4px;">BCHS</div>
+      <input type="number" id="bchs_score" placeholder="0" min="0" max="99"
+        style="width:100%;background:var(--surface2);border:2px solid #4A90D9;border-radius:8px;color:var(--text);padding:10px 8px;font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:900;text-align:center;outline:none;"
+        oninput="updateSetResult()">
+    </div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.4rem;color:var(--text-muted);">—</div>
+    <div style="flex:1;text-align:center;">
+      <div style="font-size:0.65rem;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;" id="oppScoreLabel">OPP</div>
+      <input type="number" id="opp_score" placeholder="0" min="0" max="99"
+        style="width:100%;background:var(--surface2);border:2px solid var(--border);border-radius:8px;color:var(--text);padding:10px 8px;font-family:'Barlow Condensed',sans-serif;font-size:1.6rem;font-weight:900;text-align:center;outline:none;"
+        oninput="updateSetResult()">
+    </div>
+    <button onclick="saveSetScore()" style="background:var(--red);border:none;border-radius:8px;color:white;padding:12px 14px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:0.8rem;letter-spacing:0.08em;text-transform:uppercase;cursor:pointer;white-space:nowrap;">Save Score</button>
+  </div>
+</div>
+
 <!-- Team Filter -->
 <div class="team-filter">
   <button class="team-filter-btn active" id="trackTeamV" onclick="setTrackTeam('varsity')">Varsity</button>
@@ -994,6 +1063,7 @@
   </div>
   <div id="statsContent" style="display:none;">
     <div class="game-selector" id="statsGameSelector"></div>
+    <div id="statsScoreSummary" style="margin-bottom:14px;"></div>
     <div class="team-filter">
       <button class="team-filter-btn active" id="statsTeamV" onclick="setStatsTeam('varsity')">Varsity</button>
       <button class="team-filter-btn" id="statsTeamJ" onclick="setStatsTeam('jv')">JV</button>
@@ -1394,18 +1464,116 @@ function deleteMatch(id, e) {
   renderAll();
 }
 
+function saveSetScore() {
+  if (!state.activeGameId) return;
+  const bchs = parseInt(document.getElementById('bchs_score').value);
+  const opp = parseInt(document.getElementById('opp_score').value);
+  if (isNaN(bchs) || isNaN(opp)) { showToast('Enter both scores first'); return; }
+  const game = state.games[state.activeGameId];
+  const setKey = String(state.currentSet);
+  if (!game.scores) game.scores = {};
+  game.scores[setKey] = { bchs, opp, win: bchs > opp };
+  saveToFirebase();
+  renderSetScoreSummary();
+  updateSetResult();
+  showToast(`Set ${setKey}: BCHS ${bchs} – ${opp} ${bchs > opp ? '✓ W' : '✗ L'}`);
+}
+
+function updateSetResult() {
+  const bchs = parseInt(document.getElementById('bchs_score').value);
+  const opp = parseInt(document.getElementById('opp_score').value);
+  const badge = document.getElementById('setResultBadge');
+  if (isNaN(bchs) || isNaN(opp) || (bchs === 0 && opp === 0)) {
+    badge.style.display = 'none'; return;
+  }
+  badge.style.display = 'inline';
+  if (bchs > opp) {
+    badge.textContent = 'W';
+    badge.style.background = 'rgba(34,197,94,0.15)';
+    badge.style.color = '#22c55e';
+    badge.style.border = '1px solid #22c55e';
+  } else if (opp > bchs) {
+    badge.textContent = 'L';
+    badge.style.background = 'rgba(239,68,68,0.15)';
+    badge.style.color = '#ef4444';
+    badge.style.border = '1px solid #ef4444';
+  } else {
+    badge.textContent = 'TIE';
+    badge.style.background = 'rgba(107,114,128,0.15)';
+    badge.style.color = '#9ca3af';
+    badge.style.border = '1px solid #6b7280';
+  }
+}
+
+function renderSetScoreSummary() {
+  const game = state.games[state.activeGameId];
+  if (!game?.scores || !Object.keys(game.scores).length) {
+    document.getElementById('setScoreSummary').style.display = 'none';
+    return;
+  }
+  const scores = game.scores;
+  const sets = Object.keys(scores).sort();
+  const html = `<div class="score-summary">${sets.map(s => {
+    const sc = scores[s];
+    const cls = sc.win ? 'win' : 'loss';
+    return `<div class="score-chip ${cls}">
+      <span class="sc-set">Set ${s}</span>
+      <span class="sc-score">${sc.bchs}–${sc.opp}</span>
+      <span class="sc-result">${sc.win ? 'W' : 'L'}</span>
+    </div>`;
+  }).join('')}</div>`;
+  const el = document.getElementById('setScoreSummary');
+  el.innerHTML = html;
+  el.style.display = 'block';
+}
+
+function promptNextSet() {
+  const bchs = parseInt(document.getElementById('bchs_score').value);
+  const opp = parseInt(document.getElementById('opp_score').value);
+  const game = state.games[state.activeGameId];
+  const setKey = String(state.currentSet);
+  // Auto-save score if entered but not yet saved
+  if (!isNaN(bchs) && !isNaN(opp) && !(game.scores?.[setKey])) {
+    if (bchs > 0 || opp > 0) {
+      if (!game.scores) game.scores = {};
+      game.scores[setKey] = { bchs, opp, win: bchs > opp };
+    }
+  }
+  nextSet();
+}
+
+function promptEndMatch() {
+  const bchs = parseInt(document.getElementById('bchs_score').value);
+  const opp = parseInt(document.getElementById('opp_score').value);
+  const game = state.games[state.activeGameId];
+  const setKey = String(state.currentSet);
+  if (!isNaN(bchs) && !isNaN(opp) && !(game.scores?.[setKey])) {
+    if (bchs > 0 || opp > 0) {
+      if (!game.scores) game.scores = {};
+      game.scores[setKey] = { bchs, opp, win: bchs > opp };
+    }
+  }
+  endMatch();
+}
+
 function nextSet() {
   state.currentSet++;
   const game = state.games[state.activeGameId];
   if (!game.sets[state.currentSet]) game.sets[state.currentSet] = {};
   state.activityLog = [];
+  // Clear score inputs
+  document.getElementById('bchs_score').value = '';
+  document.getElementById('opp_score').value = '';
+  document.getElementById('setResultBadge').style.display = 'none';
+  document.getElementById('scoreSetLabel').textContent = state.currentSet;
   saveToFirebase();
   renderTrackingButtons();
+  renderSetScoreSummary();
   document.getElementById('currentSetNum').textContent = state.currentSet;
   showToast(`Set ${state.currentSet} started`);
 }
 
-function endMatch() {
+
   if (!confirm('End this match and mark it complete?')) return;
   state.games[state.activeGameId].complete = true;
   state.activeGameId = null;
@@ -1602,12 +1770,41 @@ function renderStatsView() {
     </div>
   `).join('');
 
+  // Score summary in stats view
+  renderStatsScoreSummary();
+
   // Set toggle
   renderSetToggle();
   renderStatsTable();
 }
 
-function selectStatsGame(id) {
+function renderStatsScoreSummary() {
+  const el = document.getElementById('statsScoreSummary');
+  if (!el) return;
+  const game = state.games[state.statsGameId];
+  if (!game?.scores || !Object.keys(game.scores).length) { el.innerHTML = ''; return; }
+  const scores = game.scores;
+  const sets = Object.keys(scores).sort();
+  const wins = sets.filter(s => scores[s].win).length;
+  const losses = sets.length - wins;
+  el.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">
+        Match Score — <span style="color:${wins>losses?'var(--green)':'#ef4444'}">${wins}–${losses}</span>
+      </div>
+      <div class="score-summary">${sets.map(s => {
+        const sc = scores[s];
+        const cls = sc.win ? 'win' : 'loss';
+        return `<div class="score-chip ${cls}">
+          <span class="sc-set">Set ${s}</span>
+          <span class="sc-score">${sc.bchs}–${sc.opp}</span>
+          <span class="sc-result">${sc.win ? 'W' : 'L'}</span>
+        </div>`;
+      }).join('')}</div>
+    </div>`;
+}
+
+
   state.statsGameId = id;
   renderStatsView();
 }
@@ -1839,10 +2036,13 @@ function renderAll() {
   if (hasActive) {
     const game = state.games[state.activeGameId];
     document.getElementById('opponentName').textContent = game.opponent;
+    document.getElementById('oppScoreLabel').textContent = game.opponent.split(' ')[0].toUpperCase();
     document.getElementById('currentSetNum').textContent = state.currentSet;
+    document.getElementById('scoreSetLabel').textContent = state.currentSet;
     renderPlayerChips();
     renderTrackingButtons();
     renderActivityLog();
+    renderSetScoreSummary();
   }
   renderGamesList();
   renderPlayerCards();
