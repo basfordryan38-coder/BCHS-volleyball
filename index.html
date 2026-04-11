@@ -1243,9 +1243,28 @@ async function loadFromFirebase() {
     const data = await res.json();
     if (data) {
       state.games = data.games || state.games;
-      state.roster = data.roster || state.roster;
+      // Only overwrite roster if Firebase has one, otherwise seed it
+      if (data.roster && (data.roster.varsity?.length || data.roster.jv?.length)) {
+        state.roster = data.roster;
+      } else {
+        // First time — seed Firebase with default roster
+        state.roster = JSON.parse(JSON.stringify(DEFAULT_ROSTER));
+        await fetch(`${firebaseUrl}/volleyball/roster.json?auth=${firebaseApiKey}`, {
+          method: 'PUT',
+          body: JSON.stringify(state.roster)
+        });
+      }
       renderAll();
       showToast('Loaded from Firebase ✓');
+    } else {
+      // Nothing in Firebase at all — seed everything
+      state.roster = JSON.parse(JSON.stringify(DEFAULT_ROSTER));
+      await fetch(`${firebaseUrl}/volleyball.json?auth=${firebaseApiKey}`, {
+        method: 'PUT',
+        body: JSON.stringify({ games: {}, roster: state.roster })
+      });
+      renderAll();
+      showToast('Roster seeded to Firebase ✓');
     }
   } catch(e) { console.log('Firebase load error', e); }
 }
