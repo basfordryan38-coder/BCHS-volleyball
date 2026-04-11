@@ -1106,8 +1106,8 @@
 // ═══════════════════════════════════════════
 // APP STATE
 // ═══════════════════════════════════════════
-let firebaseUrl = localStorage.getItem('fbUrl') || '';
-let firebaseApiKey = localStorage.getItem('fbApiKey') || '';
+let firebaseUrl = localStorage.getItem('fbUrl') || 'https://bchs-volleyball-default-rtdb.firebaseio.com';
+let firebaseApiKey = localStorage.getItem('fbApiKey') || 'AIzaSyAYld8n1Fe7s5QpJE9eLssExt2owJSaaSU';
 let db = null; // Firebase DB ref stub
 
 let state = {
@@ -1195,10 +1195,6 @@ window.onload = () => {
     initFirebase();
   } else {
     updateDbStatus(false);
-    // Show config prompt after short delay
-    setTimeout(() => {
-      if (!firebaseUrl) openConfig();
-    }, 800);
   }
 
   renderAll();
