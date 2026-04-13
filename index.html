@@ -1745,9 +1745,12 @@ function renderStatsScoreSummary() {
 function renderSetToggle() {
   const game = state.games[state.statsGameId];
   if (!game) return;
-  const sets = Object.keys(game.sets || {'1':{}}).map(Number).filter(n => n > 0).sort((a,b) => a-b).map(String);
+  const rawKeys = Object.keys(game.sets || {});
+  const sets = rawKeys.map(Number).filter(n => n > 0).sort((a,b) => a-b).map(String);
   const toggle = document.getElementById('setToggle');
-  toggle.innerHTML = `<button class="set-toggle-btn ${state.statsSetView==='total'?'active':''}" onclick="setStatsSetView('total')">Total</button>`
+  // DEBUG — remove after fix confirmed
+  toggle.innerHTML = `<div style="font-size:0.7rem;color:#f59e0b;margin-bottom:6px;">sets raw keys: [${rawKeys.join(', ')}] → filtered: [${sets.join(', ')}]</div>`
+    + `<button class="set-toggle-btn ${state.statsSetView==='total'?'active':''}" onclick="setStatsSetView('total')">Total</button>`
     + sets.map(s => `<div style="display:flex;align-items:center;gap:2px;">
       <button class="set-toggle-btn ${state.statsSetView===s?'active':''}" onclick="setStatsSetView('${s}')">Set ${s}</button>
       <button onclick="deleteSet('${s}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.7rem;padding:2px 6px;border-radius:4px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-muted)'">🗑</button>
