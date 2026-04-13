@@ -1701,9 +1701,12 @@ function renderStatsView() {
   document.getElementById('statsNoGame').style.display = hasGames ? 'none' : 'block';
   document.getElementById('statsContent').style.display = hasGames ? 'block' : 'none';
   if (!hasGames) return;
-  const selector = document.getElementById('statsGameSelector');
   const games = Object.values(state.games).sort((a,b) => b.created - a.created);
-  if (!state.statsGameId && games.length) state.statsGameId = games[0].id;
+  // Always ensure a game is selected
+  if (!state.statsGameId || !state.games[state.statsGameId]) {
+    state.statsGameId = games[0].id;
+  }
+  const selector = document.getElementById('statsGameSelector');
   selector.innerHTML = games.map(g => `
     <div class="game-pill ${state.statsGameId === g.id ? 'active' : ''}" onclick="selectStatsGame('${g.id}')">
       vs ${g.opponent} ${g.date ? `(${g.date.slice(5)})` : ''}
