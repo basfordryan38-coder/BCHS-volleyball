@@ -427,8 +427,12 @@ window.onload = () => {
     state.roster = JSON.parse(JSON.stringify(DEFAULT_ROSTER));
   }
   document.getElementById('newMatchDate').value = new Date().toISOString().split('T')[0];
-  initFirebase();
+  // Render immediately from localStorage so UI isn't blank
   renderAll();
+  renderStatsView();
+  renderPlayerCards();
+  // Then sync from Firebase in background
+  initFirebase();
 };
 
 function saveLocal() {
