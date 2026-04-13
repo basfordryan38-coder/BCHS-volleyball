@@ -467,10 +467,11 @@ async function loadFromFirebase() {
       if (state.activeGameId && !state.games[state.activeGameId]) state.activeGameId = null;
       if (!state.statsGameId) {
         const ids = Object.keys(state.games);
-        if (ids.length) state.statsGameId = ids[0];
+        if (ids.length) state.statsGameId = Object.values(state.games).sort((a,b)=>b.created-a.created)[0].id;
       }
       renderAll();
       renderStatsView();
+      renderPlayerCards();
       showToast('Loaded ✓');
     }
   } catch(e) { console.log('FB error', e); }
