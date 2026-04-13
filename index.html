@@ -1323,14 +1323,29 @@ async function testFirebaseConnection() {
   } catch(e) { updateDbStatus(false); showToast('Firebase offline — using local storage'); }
 }
 
+// Firebase converts arrays to numbered objects — convert back
+function normalizeArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  // It's a numbered object like {0:{...}, 1:{...}}
+  return Object.keys(val).sort((a,b) => Number(a)-Number(b)).map(k => val[k]);
+}
+
 async function loadFromFirebase() {
   try {
     const res = await fetch(`${firebaseUrl}/volleyball.json?auth=${firebaseApiKey}`);
     const data = await res.json();
     if (data) {
       state.games = data.games || state.games;
-      if (data.roster && (data.roster.varsity?.length || data.roster.jv?.length)) {
-        state.roster = data.roster;
+      if (data.roster) {
+        state.roster = {
+          varsity: normalizeArray(data.roster.varsity),
+          jv: normalizeArray(data.roster.jv)
+        };
+        // If still empty after normalize, use defaults
+        if (!state.roster.varsity.length && !state.roster.jv.length) {
+          state.roster = JSON.parse(JSON.stringify(DEFAULT_ROSTER));
+        }
       } else {
         state.roster = JSON.parse(JSON.stringify(DEFAULT_ROSTER));
         await fetch(`${firebaseUrl}/volleyball/roster.json?auth=${firebaseApiKey}`, {
