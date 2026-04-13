@@ -1367,6 +1367,11 @@ async function loadFromFirebase() {
         }
       }
       if (state.activeGameId && !state.games[state.activeGameId]) state.activeGameId = null;
+      // Always set a default statsGameId when games load
+      const gameIds = Object.keys(state.games);
+      if (gameIds.length && (!state.statsGameId || !state.games[state.statsGameId])) {
+        state.statsGameId = Object.values(state.games).sort((a,b) => b.created - a.created)[0].id;
+      }
       // If stats tab is currently visible, re-render it now that data is loaded
       const statsTab = document.getElementById('tab-stats');
       if (statsTab && statsTab.classList.contains('active')) renderStatsView();
