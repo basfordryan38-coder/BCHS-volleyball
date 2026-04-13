@@ -1327,8 +1327,26 @@ async function testFirebaseConnection() {
 function normalizeArray(val) {
   if (!val) return [];
   if (Array.isArray(val)) return val;
-  // It's a numbered object like {0:{...}, 1:{...}}
-  return Object.keys(val).sort((a,b) => Number(a)-Number(b)).map(k => val[k]);
+  return Object.keys(val).sort((a,b) => Number(a)-Number(b)).map(k => val[k]).filter(v => v != null);
+}
+
+// Normalize a games object coming back from Firebase
+function normalizeGames(gamesData) {
+  if (!gamesData) return {};
+  const result = {};
+  Object.entries(gamesData).forEach(([gameId, game]) => {
+    if (!game) return;
+    // Normalize sets — each set's player stats are plain objects, leave them alone
+    const sets = {};
+    if (game.sets) {
+      Object.entries(game.sets).forEach(([setKey, setData]) => {
+        const setNum = Number(setKey);
+        if (setNum > 0 && setData) sets[setKey] = setData;
+      });
+    }
+    result[gameId] = { ...game, sets };
+  });
+  return result;
 }
 
 async function loadFromFirebase() {
@@ -1336,45 +1354,56 @@ async function loadFromFirebase() {
     const res = await fetch(`${firebaseUrl}/volleyball.json?auth=${firebaseApiKey}`);
     const data = await res.json();
     if (data) {
-      state.games = data.games || state.games;
+      // Load games with normalization
+      if (data.games) {
+        state.games = normalizeGames(data.games);
+      }
+      // Load roster with array normalization
       if (data.roster) {
-        state.roster = {
-          varsity: normalizeArray(data.roster.varsity),
-          jv: normalizeArray(data.roster.jv)
-        };
-        // If still empty after normalize, use defaults
-        if (!state.roster.varsity.length && !state.roster.jv.length) {
-          state.roster = JSON.parse(JSON.stringify(DEFAULT_ROSTER));
+        const v = normalizeArray(data.roster.varsity);
+        const jv = normalizeArray(data.roster.jv);
+        if (v.length || jv.length) {
+          state.roster = { varsity: v, jv: jv };
         }
-      } else {
-        state.roster = JSON.parse(JSON.stringify(DEFAULT_ROSTER));
-        await fetch(`${firebaseUrl}/volleyball/roster.json?auth=${firebaseApiKey}`, {
-          method: 'PUT', body: JSON.stringify(state.roster)
-        });
       }
       if (state.activeGameId && !state.games[state.activeGameId]) state.activeGameId = null;
       renderAll();
       showToast('Loaded from Firebase ✓');
-    } else {
-      state.roster = JSON.parse(JSON.stringify(DEFAULT_ROSTER));
-      await fetch(`${firebaseUrl}/volleyball.json?auth=${firebaseApiKey}`, {
-        method: 'PUT', body: JSON.stringify({ games: {}, roster: state.roster })
-      });
-      renderAll();
-      showToast('Roster seeded to Firebase ✓');
     }
-  } catch(e) { console.log('Firebase load error', e); }
+  } catch(e) { console.log('Firebase load error', e); showToast('Using local data'); }
 }
 
 async function saveToFirebase() {
   if (!firebaseUrl || !firebaseApiKey) { saveLocal(); return; }
   try {
-    await fetch(`${firebaseUrl}/volleyball.json?auth=${firebaseApiKey}`, {
-      method: 'PUT', body: JSON.stringify({ games: state.games, roster: state.roster })
+    // Save roster separately — never overwrites games
+    await fetch(`${firebaseUrl}/volleyball/roster.json?auth=${firebaseApiKey}`, {
+      method: 'PUT', body: JSON.stringify(state.roster)
+    });
+    // Save each game individually — never wipes other games
+    const gamePromises = Object.entries(state.games).map(([id, game]) =>
+      fetch(`${firebaseUrl}/volleyball/games/${id}.json?auth=${firebaseApiKey}`, {
+        method: 'PUT', body: JSON.stringify(game)
+      })
+    );
+    await Promise.all(gamePromises);
+    saveLocal();
+  } catch(e) { saveLocal(); }
+}
+
+async function saveGameToFirebase(gameId) {
+  if (!firebaseUrl || !firebaseApiKey) { saveLocal(); return; }
+  try {
+    const game = state.games[gameId];
+    if (!game) return;
+    await fetch(`${firebaseUrl}/volleyball/games/${gameId}.json?auth=${firebaseApiKey}`, {
+      method: 'PUT', body: JSON.stringify(game)
     });
     saveLocal();
   } catch(e) { saveLocal(); }
 }
+
+
 
 function updateDbStatus(connected) {
   const dot = document.getElementById('dbDot');
@@ -1458,7 +1487,7 @@ function saveSetScore() {
   const setKey = String(state.currentSet);
   if (!game.scores) game.scores = {};
   game.scores[setKey] = { bchs, opp, win: bchs > opp };
-  saveToFirebase(); renderSetScoreSummary(); updateSetResult();
+  saveGameToFirebase(state.activeGameId); renderSetScoreSummary(); updateSetResult();
   showToast(`Set ${setKey}: BCHS ${bchs}–${opp} ${bchs > opp ? '✓ W' : '✗ L'}`);
 }
 
@@ -1522,7 +1551,7 @@ function nextSet() {
   document.getElementById('opp_score').value = '';
   document.getElementById('setResultBadge').style.display = 'none';
   document.getElementById('scoreSetLabel').textContent = state.currentSet;
-  saveToFirebase(); renderTrackingButtons(); renderSetScoreSummary();
+  saveGameToFirebase(state.activeGameId); renderTrackingButtons(); renderSetScoreSummary();
   document.getElementById('currentSetNum').textContent = state.currentSet;
   showToast(`Set ${state.currentSet} started`);
 }
@@ -1551,7 +1580,7 @@ function logStat(stat) {
     aces:'Ace 🎯', serveErrors:'Srv Err ⊗', digs:'Dig 🛡', blocks:'Block ✋', assists:'Assist 🤝', passErrors:'Pass Err 🙈' };
   state.activityLog.unshift({ team, num, name, stat, label: statLabels[stat], set: setKey, key: playerKey, ts: Date.now() });
   if (state.activityLog.length > 30) state.activityLog.pop();
-  saveToFirebase(); renderTrackingButtons(); renderActivityLog();
+  saveGameToFirebase(state.activeGameId); renderTrackingButtons(); renderActivityLog();
   const statMap = { kills:'kill', attackErrors:'attack-err', attempts:'attempt',
     aces:'ace', serveErrors:'serve-err', digs:'dig', blocks:'block', assists:'assist', passErrors:'pass-err' };
   const btns = document.querySelectorAll(`.stat-btn.${statMap[stat]}`);
@@ -1564,7 +1593,7 @@ function undoLast() {
   const game = state.games[state.activeGameId];
   if (game?.sets[last.set]?.[last.key]?.[last.stat] > 0) game.sets[last.set][last.key][last.stat]--;
   state.activityLog.shift();
-  saveToFirebase(); renderTrackingButtons(); renderActivityLog(); showToast('Undone');
+  saveGameToFirebase(state.activeGameId); renderTrackingButtons(); renderActivityLog(); showToast('Undone');
 }
 
 function undoEntry(idx) {
@@ -1573,7 +1602,7 @@ function undoEntry(idx) {
   const game = state.games[state.activeGameId];
   if (game?.sets[entry.set]?.[entry.key]?.[entry.stat] > 0) game.sets[entry.set][entry.key][entry.stat]--;
   state.activityLog.splice(idx, 1);
-  saveToFirebase(); renderTrackingButtons(); renderActivityLog(); showToast('Entry removed');
+  saveGameToFirebase(state.activeGameId); renderTrackingButtons(); renderActivityLog(); showToast('Entry removed');
 }
 
 // ═══════════════════════════════════════════
