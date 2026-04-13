@@ -360,6 +360,9 @@
   .stat-btn.assist { border-color: #ec4899; }
   .stat-btn.assist:hover { background: rgba(236,72,153,0.12); }
   .stat-btn.assist .stat-count { color: #ec4899; }
+  .stat-btn.pass-err { border-color: #f59e0b; }
+  .stat-btn.pass-err:hover { background: rgba(245,158,11,0.12); }
+  .stat-btn.pass-err .stat-count { color: #f59e0b; }
   .stat-btn.undo { border-color: #4b5563; }
   .stat-btn.undo:hover { background: rgba(75,85,99,0.15); }
   .stat-btn.undo .stat-count { color: #9ca3af; font-size: 0.75rem; }
@@ -863,6 +866,18 @@
 </head>
 <body>
 
+<!-- EDIT STATS MODAL -->
+
+<div class="modal-overlay" id="editStatsModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeEditStats()">✕</button>
+    <h2>✏️ Edit Stats</h2>
+    <p class="modal-sub" id="editStatsSubtitle">Player · Set</p>
+    <div id="editStatsFields"></div>
+    <button class="btn-primary" onclick="saveEditStats()">Save Changes</button>
+  </div>
+</div>
+
 <!-- FIREBASE CONFIG MODAL -->
 
 <div class="modal-overlay" id="configModal">
@@ -1036,6 +1051,11 @@
     <span class="stat-name">Assist</span>
     <span class="stat-count" id="btn-assists">0</span>
   </button>
+  <button class="stat-btn pass-err" onclick="logStat('passErrors')">
+    <span class="stat-icon">🙈</span>
+    <span class="stat-name">Pass Err</span>
+    <span class="stat-count" id="btn-passErrors">0</span>
+  </button>
   <button class="stat-btn undo" onclick="undoLast()">
     <span class="stat-icon">↩</span>
     <span class="stat-name">Undo</span>
@@ -1084,6 +1104,7 @@
             <th>SE</th>
             <th>D</th>
             <th>BS</th>
+            <th>PE</th>
           </tr>
         </thead>
         <tbody id="statsTableBody"></tbody>
@@ -1192,47 +1213,42 @@
 
 <script>
 // ═══════════════════════════════════════════
-// APP STATE
+// CONFIG
 // ═══════════════════════════════════════════
 let firebaseUrl = localStorage.getItem('fbUrl') || 'https://bchs-volleyball-default-rtdb.firebaseio.com';
 let firebaseApiKey = localStorage.getItem('fbApiKey') || 'AIzaSyAYld8n1Fe7s5QpJE9eLssExt2owJSaaSU';
-let db = null; // Firebase DB ref stub
 
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
 let state = {
-  games: {},
-  roster: { varsity: [], jv: [] },
-  activeGameId: null,
-  currentSet: 1,
-  selectedPlayer: null,
-  trackTeam: 'varsity',
-  statsTeam: 'varsity',
-  playersTeam: 'varsity',
-  statsGameId: null,
-  statsSetView: 'total',
-  activityLog: []
+  games: {}, roster: { varsity: [], jv: [] },
+  activeGameId: null, currentSet: 1, selectedPlayer: null,
+  trackTeam: 'varsity', statsTeam: 'varsity', playersTeam: 'varsity',
+  statsGameId: null, statsSetView: 'total', activityLog: []
 };
 
 // ═══════════════════════════════════════════
-// DEFAULT BCHS ROSTER (placeholder names)
+// ROSTER
 // ═══════════════════════════════════════════
 const DEFAULT_ROSTER = {
   varsity: [
-    { num: 1,  name: 'Kura Iiyoshi',     pos: 'S/RS'  },
-    { num: 2,  name: 'Bryan Beltran',    pos: 'DS'    },
-    { num: 3,  name: 'Riley Parnell',    pos: 'S/DS'  },
-    { num: 5,  name: 'Steven Woods',     pos: 'S/RS'  },
-    { num: 6,  name: 'David Pablo',      pos: 'DS'    },
-    { num: 7,  name: 'Kristian Karigambe', pos: 'OH'  },
-    { num: 8,  name: 'Nick Newman',      pos: 'L/DS'  },
-    { num: 10, name: 'Eric Lipps',       pos: 'OH'    },
-    { num: 13, name: 'Maddox Kuryla',    pos: 'S/RS'  },
-    { num: 14, name: 'Harry Paterson',   pos: 'M/RS'  },
-    { num: 15, name: 'Brycen Herald',    pos: 'OH/RS' },
-    { num: 18, name: 'Kam Johnson',      pos: 'MB'    },
-    { num: 19, name: 'Will Burns',       pos: 'MB'    },
-    { num: 22, name: 'Santiago Febres',  pos: 'DS'    },
-    { num: 26, name: 'Phil Capps',       pos: 'DS'    },
-    { num: 29, name: 'Bailey Tucker',    pos: 'OH'    },
+    { num: 1,  name: 'Kura Iiyoshi',      pos: 'S/RS'  },
+    { num: 2,  name: 'Bryan Beltran',     pos: 'DS'    },
+    { num: 3,  name: 'Riley Parnell',     pos: 'S/DS'  },
+    { num: 5,  name: 'Steven Woods',      pos: 'S/RS'  },
+    { num: 6,  name: 'David Pablo',       pos: 'DS'    },
+    { num: 7,  name: 'Kristian Karigambe',pos: 'OH'    },
+    { num: 8,  name: 'Nick Newman',       pos: 'L/DS'  },
+    { num: 10, name: 'Eric Lipps',        pos: 'OH'    },
+    { num: 13, name: 'Maddox Kuryla',     pos: 'S/RS'  },
+    { num: 14, name: 'Harry Paterson',    pos: 'M/RS'  },
+    { num: 15, name: 'Brycen Herald',     pos: 'OH/RS' },
+    { num: 18, name: 'Kam Johnson',       pos: 'MB'    },
+    { num: 19, name: 'Will Burns',        pos: 'MB'    },
+    { num: 22, name: 'Santiago Febres',   pos: 'DS'    },
+    { num: 26, name: 'Phil Capps',        pos: 'DS'    },
+    { num: 29, name: 'Bailey Tucker',     pos: 'OH'    },
   ],
   jv: [
     { num: 4,  name: 'Bittner Essien',    pos: 'OH/DS' },
@@ -1244,11 +1260,11 @@ const DEFAULT_ROSTER = {
     { num: 24, name: 'Joyce Mbambi',      pos: 'MB'    },
     { num: 28, name: 'David Gray',        pos: 'S'     },
     { num: 29, name: 'Bailey Tucker',     pos: 'OH'    },
-    { num: 30, name: 'Yamato O\'Connor',  pos: 'S'     },
+    { num: 30, name: "Yamato O'Connor",   pos: 'S'     },
   ]
 };
 
-const STAT_KEYS = ['kills','attackErrors','attempts','aces','serveErrors','digs','blocks','assists'];
+const STAT_KEYS = ['kills','attackErrors','attempts','aces','serveErrors','digs','blocks','assists','passErrors'];
 
 function emptyStats() {
   const o = {};
@@ -1260,13 +1276,12 @@ function emptyStats() {
 // INIT
 // ═══════════════════════════════════════════
 window.onload = () => {
-  // Load from localStorage as fallback / offline
   const saved = localStorage.getItem('vbAppState');
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
       state.games = parsed.games || {};
-      state.roster = parsed.roster || DEFAULT_ROSTER;
+      state.roster = parsed.roster || JSON.parse(JSON.stringify(DEFAULT_ROSTER));
       state.activeGameId = parsed.activeGameId || null;
       state.currentSet = parsed.currentSet || 1;
     } catch(e) {
@@ -1275,25 +1290,15 @@ window.onload = () => {
   } else {
     state.roster = JSON.parse(JSON.stringify(DEFAULT_ROSTER));
   }
-
-  // Set today's date
   document.getElementById('newMatchDate').value = new Date().toISOString().split('T')[0];
-
-  if (firebaseUrl && firebaseApiKey) {
-    initFirebase();
-  } else {
-    updateDbStatus(false);
-  }
-
+  if (firebaseUrl && firebaseApiKey) { initFirebase(); } else { updateDbStatus(false); }
   renderAll();
 };
 
 function saveLocal() {
   localStorage.setItem('vbAppState', JSON.stringify({
-    games: state.games,
-    roster: state.roster,
-    activeGameId: state.activeGameId,
-    currentSet: state.currentSet
+    games: state.games, roster: state.roster,
+    activeGameId: state.activeGameId, currentSet: state.currentSet
   }));
 }
 
@@ -1301,8 +1306,7 @@ function saveLocal() {
 // FIREBASE
 // ═══════════════════════════════════════════
 function initFirebase() {
-  updateDbStatus(null); // connecting
-  // We use REST API (same pattern as golf pool - no SDK needed)
+  updateDbStatus(null);
   testFirebaseConnection();
 }
 
@@ -1310,19 +1314,11 @@ async function testFirebaseConnection() {
   if (!firebaseUrl) return;
   try {
     const res = await fetch(`${firebaseUrl}/vb_test.json?auth=${firebaseApiKey}`, {
-      method: 'PUT',
-      body: JSON.stringify({ connected: true, ts: Date.now() })
+      method: 'PUT', body: JSON.stringify({ connected: true, ts: Date.now() })
     });
-    if (res.ok) {
-      updateDbStatus(true);
-      loadFromFirebase();
-    } else {
-      updateDbStatus(false);
-    }
-  } catch(e) {
-    updateDbStatus(false);
-    showToast('Firebase offline — using local storage');
-  }
+    if (res.ok) { updateDbStatus(true); loadFromFirebase(); }
+    else { updateDbStatus(false); }
+  } catch(e) { updateDbStatus(false); showToast('Firebase offline — using local storage'); }
 }
 
 async function loadFromFirebase() {
@@ -1330,29 +1326,22 @@ async function loadFromFirebase() {
     const res = await fetch(`${firebaseUrl}/volleyball.json?auth=${firebaseApiKey}`);
     const data = await res.json();
     if (data) {
-      // Merge games without wiping active session
       state.games = data.games || state.games;
-      // Only overwrite roster if Firebase has one, otherwise seed it
       if (data.roster && (data.roster.varsity?.length || data.roster.jv?.length)) {
         state.roster = data.roster;
       } else {
         state.roster = JSON.parse(JSON.stringify(DEFAULT_ROSTER));
         await fetch(`${firebaseUrl}/volleyball/roster.json?auth=${firebaseApiKey}`, {
-          method: 'PUT',
-          body: JSON.stringify(state.roster)
+          method: 'PUT', body: JSON.stringify(state.roster)
         });
       }
-      // Restore active game if it still exists
-      if (state.activeGameId && !state.games[state.activeGameId]) {
-        state.activeGameId = null;
-      }
+      if (state.activeGameId && !state.games[state.activeGameId]) state.activeGameId = null;
       renderAll();
       showToast('Loaded from Firebase ✓');
     } else {
       state.roster = JSON.parse(JSON.stringify(DEFAULT_ROSTER));
       await fetch(`${firebaseUrl}/volleyball.json?auth=${firebaseApiKey}`, {
-        method: 'PUT',
-        body: JSON.stringify({ games: {}, roster: state.roster })
+        method: 'PUT', body: JSON.stringify({ games: {}, roster: state.roster })
       });
       renderAll();
       showToast('Roster seeded to Firebase ✓');
@@ -1364,28 +1353,18 @@ async function saveToFirebase() {
   if (!firebaseUrl || !firebaseApiKey) { saveLocal(); return; }
   try {
     await fetch(`${firebaseUrl}/volleyball.json?auth=${firebaseApiKey}`, {
-      method: 'PUT',
-      body: JSON.stringify({ games: state.games, roster: state.roster })
+      method: 'PUT', body: JSON.stringify({ games: state.games, roster: state.roster })
     });
     saveLocal();
-  } catch(e) {
-    saveLocal();
-  }
+  } catch(e) { saveLocal(); }
 }
 
 function updateDbStatus(connected) {
   const dot = document.getElementById('dbDot');
   const label = document.getElementById('dbLabel');
-  if (connected === true) {
-    dot.className = 'db-dot connected';
-    label.textContent = 'Firebase';
-  } else if (connected === null) {
-    dot.className = 'db-dot';
-    label.textContent = 'Connecting...';
-  } else {
-    dot.className = 'db-dot error';
-    label.textContent = 'Local';
-  }
+  if (connected === true) { dot.className = 'db-dot connected'; label.textContent = 'Firebase'; }
+  else if (connected === null) { dot.className = 'db-dot'; label.textContent = 'Connecting...'; }
+  else { dot.className = 'db-dot error'; label.textContent = 'Local'; }
 }
 
 // ═══════════════════════════════════════════
@@ -1402,8 +1381,7 @@ function saveFirebaseConfig() {
   firebaseApiKey = document.getElementById('fbApiKeyInput').value.trim();
   localStorage.setItem('fbUrl', firebaseUrl);
   localStorage.setItem('fbApiKey', firebaseApiKey);
-  closeConfig();
-  initFirebase();
+  closeConfig(); initFirebase();
 }
 
 // ═══════════════════════════════════════════
@@ -1425,48 +1403,35 @@ function createMatch() {
   const date = document.getElementById('newMatchDate').value;
   const location = document.getElementById('newMatchLocation').value;
   if (!opponent) { showToast('Enter opponent name'); return; }
-
   const id = 'game_' + Date.now();
-  state.games[id] = {
-    id, opponent, date, location,
-    sets: { 1: {} },
-    complete: false,
-    created: Date.now()
-  };
+  state.games[id] = { id, opponent, date, location, sets: { 1: {} }, scores: {}, complete: false, created: Date.now() };
   state.activeGameId = id;
   state.currentSet = 1;
   state.activityLog = [];
   document.getElementById('newOpponent').value = '';
-  saveToFirebase();
-  renderAll();
-  showToast(`Match vs ${opponent} created!`);
-  switchTab('track');
+  saveToFirebase(); renderAll(); showToast(`Match vs ${opponent} created!`); switchTab('track');
 }
 
 function loadMatch(id) {
   state.activeGameId = id;
   const game = state.games[id];
-  state.currentSet = Object.keys(game.sets || {1:{}}).length;
-  state.activityLog = [];
-  state.selectedPlayer = null;
-  saveLocal();
-  renderAll();
-  showToast(`Loaded: vs ${game.opponent}`);
-  switchTab('track');
+  const setKeys = Object.keys(game.sets || {'1':{}}).map(Number).filter(n => n > 0);
+  state.currentSet = setKeys.length ? Math.max(...setKeys) : 1;
+  state.activityLog = []; state.selectedPlayer = null;
+  saveLocal(); renderAll(); showToast(`Loaded: vs ${game.opponent}`); switchTab('track');
 }
 
 function deleteMatch(id, e) {
   e.stopPropagation();
   if (!confirm('Delete this game? This cannot be undone.')) return;
-  if (state.activeGameId === id) {
-    state.activeGameId = null;
-    state.currentSet = 1;
-  }
+  if (state.activeGameId === id) { state.activeGameId = null; state.currentSet = 1; }
   delete state.games[id];
-  saveToFirebase();
-  renderAll();
+  saveToFirebase(); renderAll();
 }
 
+// ═══════════════════════════════════════════
+// SET SCORE
+// ═══════════════════════════════════════════
 function saveSetScore() {
   if (!state.activeGameId) return;
   const bchs = parseInt(document.getElementById('bchs_score').value);
@@ -1476,58 +1441,35 @@ function saveSetScore() {
   const setKey = String(state.currentSet);
   if (!game.scores) game.scores = {};
   game.scores[setKey] = { bchs, opp, win: bchs > opp };
-  saveToFirebase();
-  renderSetScoreSummary();
-  updateSetResult();
-  showToast(`Set ${setKey}: BCHS ${bchs} – ${opp} ${bchs > opp ? '✓ W' : '✗ L'}`);
+  saveToFirebase(); renderSetScoreSummary(); updateSetResult();
+  showToast(`Set ${setKey}: BCHS ${bchs}–${opp} ${bchs > opp ? '✓ W' : '✗ L'}`);
 }
 
 function updateSetResult() {
   const bchs = parseInt(document.getElementById('bchs_score').value);
   const opp = parseInt(document.getElementById('opp_score').value);
   const badge = document.getElementById('setResultBadge');
-  if (isNaN(bchs) || isNaN(opp) || (bchs === 0 && opp === 0)) {
-    badge.style.display = 'none'; return;
-  }
+  if (isNaN(bchs) || isNaN(opp) || (bchs === 0 && opp === 0)) { badge.style.display = 'none'; return; }
   badge.style.display = 'inline';
-  if (bchs > opp) {
-    badge.textContent = 'W';
-    badge.style.background = 'rgba(34,197,94,0.15)';
-    badge.style.color = '#22c55e';
-    badge.style.border = '1px solid #22c55e';
-  } else if (opp > bchs) {
-    badge.textContent = 'L';
-    badge.style.background = 'rgba(239,68,68,0.15)';
-    badge.style.color = '#ef4444';
-    badge.style.border = '1px solid #ef4444';
-  } else {
-    badge.textContent = 'TIE';
-    badge.style.background = 'rgba(107,114,128,0.15)';
-    badge.style.color = '#9ca3af';
-    badge.style.border = '1px solid #6b7280';
-  }
+  if (bchs > opp) { badge.textContent = 'W'; badge.style.background = 'rgba(34,197,94,0.15)'; badge.style.color = '#22c55e'; badge.style.border = '1px solid #22c55e'; }
+  else if (opp > bchs) { badge.textContent = 'L'; badge.style.background = 'rgba(239,68,68,0.15)'; badge.style.color = '#ef4444'; badge.style.border = '1px solid #ef4444'; }
+  else { badge.textContent = 'TIE'; badge.style.background = 'rgba(107,114,128,0.15)'; badge.style.color = '#9ca3af'; badge.style.border = '1px solid #6b7280'; }
 }
 
 function renderSetScoreSummary() {
   const game = state.games[state.activeGameId];
-  if (!game?.scores || !Object.keys(game.scores).length) {
-    document.getElementById('setScoreSummary').style.display = 'none';
-    return;
-  }
-  const scores = game.scores;
-  const sets = Object.keys(scores).sort();
+  if (!game?.scores || !Object.keys(game.scores).length) { document.getElementById('setScoreSummary').style.display = 'none'; return; }
+  const sets = Object.keys(game.scores).sort();
   const html = `<div class="score-summary">${sets.map(s => {
-    const sc = scores[s];
-    const cls = sc.win ? 'win' : 'loss';
-    return `<div class="score-chip ${cls}">
+    const sc = game.scores[s];
+    return `<div class="score-chip ${sc.win ? 'win' : 'loss'}">
       <span class="sc-set">Set ${s}</span>
       <span class="sc-score">${sc.bchs}–${sc.opp}</span>
       <span class="sc-result">${sc.win ? 'W' : 'L'}</span>
     </div>`;
   }).join('')}</div>`;
   const el = document.getElementById('setScoreSummary');
-  el.innerHTML = html;
-  el.style.display = 'block';
+  el.innerHTML = html; el.style.display = 'block';
 }
 
 function promptNextSet() {
@@ -1535,12 +1477,9 @@ function promptNextSet() {
   const opp = parseInt(document.getElementById('opp_score').value);
   const game = state.games[state.activeGameId];
   const setKey = String(state.currentSet);
-  // Auto-save score if entered but not yet saved
-  if (!isNaN(bchs) && !isNaN(opp) && !(game.scores?.[setKey])) {
-    if (bchs > 0 || opp > 0) {
-      if (!game.scores) game.scores = {};
-      game.scores[setKey] = { bchs, opp, win: bchs > opp };
-    }
+  if (!isNaN(bchs) && !isNaN(opp) && !game.scores?.[setKey] && (bchs > 0 || opp > 0)) {
+    if (!game.scores) game.scores = {};
+    game.scores[setKey] = { bchs, opp, win: bchs > opp };
   }
   nextSet();
 }
@@ -1550,11 +1489,9 @@ function promptEndMatch() {
   const opp = parseInt(document.getElementById('opp_score').value);
   const game = state.games[state.activeGameId];
   const setKey = String(state.currentSet);
-  if (!isNaN(bchs) && !isNaN(opp) && !(game.scores?.[setKey])) {
-    if (bchs > 0 || opp > 0) {
-      if (!game.scores) game.scores = {};
-      game.scores[setKey] = { bchs, opp, win: bchs > opp };
-    }
+  if (!isNaN(bchs) && !isNaN(opp) && !game.scores?.[setKey] && (bchs > 0 || opp > 0)) {
+    if (!game.scores) game.scores = {};
+    game.scores[setKey] = { bchs, opp, win: bchs > opp };
   }
   endMatch();
 }
@@ -1564,14 +1501,11 @@ function nextSet() {
   const game = state.games[state.activeGameId];
   if (!game.sets[state.currentSet]) game.sets[state.currentSet] = {};
   state.activityLog = [];
-  // Clear score inputs
   document.getElementById('bchs_score').value = '';
   document.getElementById('opp_score').value = '';
   document.getElementById('setResultBadge').style.display = 'none';
   document.getElementById('scoreSetLabel').textContent = state.currentSet;
-  saveToFirebase();
-  renderTrackingButtons();
-  renderSetScoreSummary();
+  saveToFirebase(); renderTrackingButtons(); renderSetScoreSummary();
   document.getElementById('currentSetNum').textContent = state.currentSet;
   showToast(`Set ${state.currentSet} started`);
 }
@@ -1579,12 +1513,8 @@ function nextSet() {
 function endMatch() {
   if (!confirm('End this match and mark it complete?')) return;
   state.games[state.activeGameId].complete = true;
-  state.activeGameId = null;
-  state.currentSet = 1;
-  state.selectedPlayer = null;
-  saveToFirebase();
-  renderAll();
-  showToast('Match complete!');
+  state.activeGameId = null; state.currentSet = 1; state.selectedPlayer = null;
+  saveToFirebase(); renderAll(); showToast('Match complete!');
 }
 
 // ═══════════════════════════════════════════
@@ -1593,7 +1523,6 @@ function endMatch() {
 function logStat(stat) {
   if (!state.selectedPlayer) { showToast('Select a player first'); return; }
   if (!state.activeGameId) { showToast('No active match'); return; }
-
   const { team, num, name } = state.selectedPlayer;
   const game = state.games[state.activeGameId];
   const setKey = String(state.currentSet);
@@ -1601,39 +1530,33 @@ function logStat(stat) {
   const playerKey = `${team}_${num}`;
   if (!game.sets[setKey][playerKey]) game.sets[setKey][playerKey] = emptyStats();
   game.sets[setKey][playerKey][stat]++;
-
-  // Activity log
   const statLabels = { kills:'Kill ⚡', attackErrors:'Atk Err ✗', attempts:'Attempt ↑',
-    aces:'Ace 🎯', serveErrors:'Srv Err ⊗', digs:'Dig 🛡', blocks:'Block ✋', assists:'Assist 🤝' };
+    aces:'Ace 🎯', serveErrors:'Srv Err ⊗', digs:'Dig 🛡', blocks:'Block ✋', assists:'Assist 🤝', passErrors:'Pass Err 🙈' };
   state.activityLog.unshift({ team, num, name, stat, label: statLabels[stat], set: setKey, key: playerKey, ts: Date.now() });
   if (state.activityLog.length > 30) state.activityLog.pop();
-
-  saveToFirebase();
-  renderTrackingButtons();
-  renderActivityLog();
-
-  // Tap flash
+  saveToFirebase(); renderTrackingButtons(); renderActivityLog();
   const statMap = { kills:'kill', attackErrors:'attack-err', attempts:'attempt',
-    aces:'ace', serveErrors:'serve-err', digs:'dig', blocks:'block', assists:'assist' };
+    aces:'ace', serveErrors:'serve-err', digs:'dig', blocks:'block', assists:'assist', passErrors:'pass-err' };
   const btns = document.querySelectorAll(`.stat-btn.${statMap[stat]}`);
-  btns.forEach(b => {
-    b.classList.add('tapped');
-    setTimeout(() => b.classList.remove('tapped'), 300);
-  });
+  btns.forEach(b => { b.classList.add('tapped'); setTimeout(() => b.classList.remove('tapped'), 300); });
 }
 
 function undoLast() {
   if (!state.activityLog.length) { showToast('Nothing to undo'); return; }
   const last = state.activityLog[0];
   const game = state.games[state.activeGameId];
-  if (game?.sets[last.set]?.[last.key]?.[last.stat] > 0) {
-    game.sets[last.set][last.key][last.stat]--;
-  }
+  if (game?.sets[last.set]?.[last.key]?.[last.stat] > 0) game.sets[last.set][last.key][last.stat]--;
   state.activityLog.shift();
-  saveToFirebase();
-  renderTrackingButtons();
-  renderActivityLog();
-  showToast('Undone');
+  saveToFirebase(); renderTrackingButtons(); renderActivityLog(); showToast('Undone');
+}
+
+function undoEntry(idx) {
+  const entry = state.activityLog[idx];
+  if (!entry) return;
+  const game = state.games[state.activeGameId];
+  if (game?.sets[entry.set]?.[entry.key]?.[entry.stat] > 0) game.sets[entry.set][entry.key][entry.stat]--;
+  state.activityLog.splice(idx, 1);
+  saveToFirebase(); renderTrackingButtons(); renderActivityLog(); showToast('Entry removed');
 }
 
 // ═══════════════════════════════════════════
@@ -1645,8 +1568,7 @@ function setTrackTeam(team) {
   document.getElementById('trackTeamJ').classList.toggle('active', team === 'jv');
   state.selectedPlayer = null;
   document.getElementById('selectedPlayerBar').style.display = 'none';
-  renderPlayerChips();
-  renderTrackingButtons();
+  renderPlayerChips(); renderTrackingButtons();
 }
 
 function renderPlayerChips() {
@@ -1665,9 +1587,7 @@ function selectPlayer(team, num) {
   const player = state.roster[team]?.find(p => p.num === num);
   if (!player) return;
   state.selectedPlayer = { team, num, name: player.name, pos: player.pos };
-  renderPlayerChips();
-  renderTrackingButtons();
-  // Update selected bar
+  renderPlayerChips(); renderTrackingButtons();
   const bar = document.getElementById('selectedPlayerBar');
   bar.style.display = 'flex';
   document.getElementById('spBadge').textContent = `#${num}`;
@@ -1679,10 +1599,7 @@ function selectPlayer(team, num) {
 }
 
 function updateHittingPct() {
-  if (!state.selectedPlayer || !state.activeGameId) {
-    document.getElementById('spHittingPct').textContent = '.000';
-    return;
-  }
+  if (!state.selectedPlayer || !state.activeGameId) { document.getElementById('spHittingPct').textContent = '.000'; return; }
   const { team, num } = state.selectedPlayer;
   const playerKey = `${team}_${num}`;
   const game = state.games[state.activeGameId];
@@ -1692,25 +1609,19 @@ function updateHittingPct() {
     if (ps) { k += ps.kills||0; e += ps.attackErrors||0; ta += ps.attempts||0; }
   });
   const pct = ta > 0 ? ((k - e) / ta).toFixed(3) : '.000';
-  document.getElementById('spHittingPct').textContent = pct.startsWith('-') ? pct : (pct === '0.000' ? '.000' : pct);
+  document.getElementById('spHittingPct').textContent = pct;
 }
 
 function renderTrackingButtons() {
   if (!state.selectedPlayer || !state.activeGameId) {
-    STAT_KEYS.forEach(k => {
-      const el = document.getElementById(`btn-${k}`);
-      if (el) el.textContent = '0';
-    });
+    STAT_KEYS.forEach(k => { const el = document.getElementById(`btn-${k}`); if (el) el.textContent = '0'; });
     return;
   }
   const { team, num } = state.selectedPlayer;
   const playerKey = `${team}_${num}`;
   const game = state.games[state.activeGameId];
   const setData = game?.sets?.[String(state.currentSet)]?.[playerKey] || emptyStats();
-  STAT_KEYS.forEach(k => {
-    const el = document.getElementById(`btn-${k}`);
-    if (el) el.textContent = setData[k] || 0;
-  });
+  STAT_KEYS.forEach(k => { const el = document.getElementById(`btn-${k}`); if (el) el.textContent = setData[k] || 0; });
   updateHittingPct();
 }
 
@@ -1720,29 +1631,12 @@ function renderActivityLog() {
     container.innerHTML = '<div style="padding:10px 14px;color:var(--text-muted);font-size:0.8rem;">No stats logged yet this session</div>';
     return;
   }
-  container.innerHTML = state.activityLog.slice(0, 15).map((entry, i) => `
+  container.innerHTML = state.activityLog.slice(0,15).map((entry, i) => `
     <div class="log-entry">
-      <div>
-        <span class="log-player">#${entry.num} ${entry.name}</span>
-        <div class="log-stat">${entry.label} — Set ${entry.set}</div>
-      </div>
+      <div><span class="log-player">#${entry.num} ${entry.name}</span>
+      <div class="log-stat">${entry.label} — Set ${entry.set}</div></div>
       <button class="log-undo" onclick="undoEntry(${i})">undo</button>
-    </div>
-  `).join('');
-}
-
-function undoEntry(idx) {
-  const entry = state.activityLog[idx];
-  if (!entry) return;
-  const game = state.games[state.activeGameId];
-  if (game?.sets[entry.set]?.[entry.key]?.[entry.stat] > 0) {
-    game.sets[entry.set][entry.key][entry.stat]--;
-  }
-  state.activityLog.splice(idx, 1);
-  saveToFirebase();
-  renderTrackingButtons();
-  renderActivityLog();
-  showToast('Entry removed');
+    </div>`).join('');
 }
 
 // ═══════════════════════════════════════════
@@ -1750,10 +1644,9 @@ function undoEntry(idx) {
 // ═══════════════════════════════════════════
 function setStatsTeam(team) {
   state.statsTeam = team;
-  ['V','J','All'].forEach(t => {
-    const el = document.getElementById(`statsTeam${t}`);
-    if (el) el.classList.toggle('active', (t === 'V' && team === 'varsity') || (t === 'J' && team === 'jv') || (t === 'All' && team === 'all'));
-  });
+  document.getElementById('statsTeamV').classList.toggle('active', team === 'varsity');
+  document.getElementById('statsTeamJ').classList.toggle('active', team === 'jv');
+  document.getElementById('statsTeamAll').classList.toggle('active', team === 'all');
   renderStatsTable();
 }
 
@@ -1762,23 +1655,22 @@ function renderStatsView() {
   document.getElementById('statsNoGame').style.display = hasGames ? 'none' : 'block';
   document.getElementById('statsContent').style.display = hasGames ? 'block' : 'none';
   if (!hasGames) return;
-
-  // Game selector pills
   const selector = document.getElementById('statsGameSelector');
   const games = Object.values(state.games).sort((a,b) => b.created - a.created);
   if (!state.statsGameId && games.length) state.statsGameId = games[0].id;
   selector.innerHTML = games.map(g => `
     <div class="game-pill ${state.statsGameId === g.id ? 'active' : ''}" onclick="selectStatsGame('${g.id}')">
       vs ${g.opponent} ${g.date ? `(${g.date.slice(5)})` : ''}
-    </div>
-  `).join('');
-
-  // Score summary in stats view
+    </div>`).join('');
   renderStatsScoreSummary();
-
-  // Set toggle
   renderSetToggle();
   renderStatsTable();
+}
+
+function selectStatsGame(id) {
+  state.statsGameId = id;
+  state.statsSetView = 'total';
+  renderStatsView();
 }
 
 function renderStatsScoreSummary() {
@@ -1786,40 +1678,34 @@ function renderStatsScoreSummary() {
   if (!el) return;
   const game = state.games[state.statsGameId];
   if (!game?.scores || !Object.keys(game.scores).length) { el.innerHTML = ''; return; }
-  const scores = game.scores;
-  const sets = Object.keys(scores).sort();
-  const wins = sets.filter(s => scores[s].win).length;
+  const sets = Object.keys(game.scores).sort();
+  const wins = sets.filter(s => game.scores[s].win).length;
   const losses = sets.length - wins;
-  el.innerHTML = `
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">
-        Match Score — <span style="color:${wins>losses?'var(--green)':'#ef4444'}">${wins}–${losses}</span>
-      </div>
-      <div class="score-summary">${sets.map(s => {
-        const sc = scores[s];
-        const cls = sc.win ? 'win' : 'loss';
-        return `<div class="score-chip ${cls}">
-          <span class="sc-set">Set ${s}</span>
-          <span class="sc-score">${sc.bchs}–${sc.opp}</span>
-          <span class="sc-result">${sc.win ? 'W' : 'L'}</span>
-        </div>`;
-      }).join('')}</div>
-    </div>`;
-}
-
-
-function selectStatsGame(id) {
-  state.statsGameId = id;
-  renderStatsView();
+  el.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:0.7rem;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;">
+      Match Score — <span style="color:${wins>=losses?'var(--green)':'#ef4444'}">${wins}–${losses}</span>
+    </div>
+    <div class="score-summary">${sets.map(s => {
+      const sc = game.scores[s];
+      return `<div class="score-chip ${sc.win?'win':'loss'}">
+        <span class="sc-set">Set ${s}</span>
+        <span class="sc-score">${sc.bchs}–${sc.opp}</span>
+        <span class="sc-result">${sc.win?'W':'L'}</span>
+      </div>`;
+    }).join('')}</div>
+  </div>`;
 }
 
 function renderSetToggle() {
   const game = state.games[state.statsGameId];
   if (!game) return;
-  const sets = Object.keys(game.sets || {1:{}}).sort();
+  const sets = Object.keys(game.sets || {'1':{}}).map(Number).filter(n => n > 0).sort((a,b) => a-b).map(String);
   const toggle = document.getElementById('setToggle');
-  toggle.innerHTML = `<button class="set-toggle-btn ${state.statsSetView === 'total' ? 'active' : ''}" onclick="setStatsSetView('total')">Total</button>`
-    + sets.map(s => `<button class="set-toggle-btn ${state.statsSetView === s ? 'active' : ''}" onclick="setStatsSetView('${s}')">Set ${s}</button>`).join('');
+  toggle.innerHTML = `<button class="set-toggle-btn ${state.statsSetView==='total'?'active':''}" onclick="setStatsSetView('total')">Total</button>`
+    + sets.map(s => `<div style="display:flex;align-items:center;gap:2px;">
+      <button class="set-toggle-btn ${state.statsSetView===s?'active':''}" onclick="setStatsSetView('${s}')">Set ${s}</button>
+      <button onclick="deleteSet('${s}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.7rem;padding:2px 6px;border-radius:4px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-muted)'">🗑</button>
+    </div>`).join('');
 }
 
 function setStatsSetView(v) {
@@ -1828,11 +1714,18 @@ function setStatsSetView(v) {
   renderStatsTable();
 }
 
+function deleteSet(setKey) {
+  if (!confirm(`Delete Set ${setKey} and all its stats? Cannot be undone.`)) return;
+  const game = state.games[state.statsGameId];
+  if (game.sets) delete game.sets[setKey];
+  if (game.scores) delete game.scores[setKey];
+  if (state.statsSetView === setKey) state.statsSetView = 'total';
+  saveToFirebase(); renderStatsView(); showToast(`Set ${setKey} deleted`);
+}
+
 function renderStatsTable() {
   const game = state.games[state.statsGameId];
   if (!game) return;
-
-  // Aggregate stats
   const playerTotals = {};
   const setsToInclude = state.statsSetView === 'total' ? Object.keys(game.sets || {}) : [state.statsSetView];
   setsToInclude.forEach(setKey => {
@@ -1842,37 +1735,22 @@ function renderStatsTable() {
       STAT_KEYS.forEach(k => playerTotals[playerKey][k] += stats[k] || 0);
     });
   });
-
   const tbody = document.getElementById('statsTableBody');
-  const teams = state.statsTeam === 'all' ? ['varsity', 'jv'] : [state.statsTeam];
+  const teams = state.statsTeam === 'all' ? ['varsity','jv'] : [state.statsTeam];
   let rows = [];
-
   teams.forEach(team => {
-    const roster = state.roster[team] || [];
-    roster.forEach(player => {
+    (state.roster[team] || []).forEach(player => {
       const playerKey = `${team}_${player.num}`;
       const stats = playerTotals[playerKey] || emptyStats();
       const pct = stats.attempts > 0 ? ((stats.kills - stats.attackErrors) / stats.attempts).toFixed(3) : '.000';
       rows.push({ player, team, stats, pct });
     });
   });
-
-  // Sort by kills desc
   rows.sort((a,b) => b.stats.kills - a.stats.kills);
-
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-muted)">No stats recorded yet</td></tr>';
-    return;
-  }
-
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text-muted)">No stats recorded yet</td></tr>'; return; }
   tbody.innerHTML = rows.map(({ player, team, stats, pct }) => `
-    <tr>
-      <td>
-        <div class="player-cell">
-          <div class="num-badge">${player.num}</div>
-          <span>${player.name.split(' ').map((n,i) => i===0 ? n[0]+'.' : n).join(' ')}</span>
-        </div>
-      </td>
+    <tr onclick="openEditStats('${team}','${player.num}')" style="cursor:pointer;">
+      <td><div class="player-cell"><div class="num-badge">${player.num}</div><span>${player.name.split(' ').map((n,i)=>i===0?n[0]+'.':n).join(' ')}</span></div></td>
       <td class="kill-val">${stats.kills}</td>
       <td>${stats.attackErrors}</td>
       <td>${stats.attempts}</td>
@@ -1882,8 +1760,56 @@ function renderStatsTable() {
       <td>${stats.serveErrors}</td>
       <td class="dig-val">${stats.digs}</td>
       <td class="block-val">${stats.blocks}</td>
-    </tr>
-  `).join('');
+      <td style="color:#f59e0b;">${stats.passErrors||0}</td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// EDIT STATS MODAL
+// ═══════════════════════════════════════════
+let editContext = { gameId: null, team: null, num: null, setKey: null };
+
+function openEditStats(team, num) {
+  const gameId = state.statsGameId;
+  const game = state.games[gameId];
+  if (!game) return;
+  const player = state.roster[team]?.find(p => String(p.num) === String(num));
+  if (!player) return;
+  const setKey = state.statsSetView === 'total' ? null : state.statsSetView;
+  editContext = { gameId, team, num: parseInt(num), setKey };
+  const label = setKey ? `Set ${setKey}` : 'All Sets (select a specific set to edit)';
+  document.getElementById('editStatsSubtitle').textContent = `#${num} ${player.name} · ${label}`;
+  if (!setKey) {
+    document.getElementById('editStatsFields').innerHTML = `<p style="color:var(--text-muted);font-size:0.85rem;line-height:1.5;">Use the <strong style="color:var(--text);">Set 1 / Set 2 / etc.</strong> buttons above the table to select a specific set, then tap a player row to edit that set's stats.</p>`;
+    document.getElementById('editStatsModal').classList.add('open');
+    return;
+  }
+  const playerKey = `${team}_${num}`;
+  const currentStats = game.sets?.[setKey]?.[playerKey] || emptyStats();
+  const statLabels = { kills:'Kills ⚡', attackErrors:'Attack Errors ✗', attempts:'Attempts ↑',
+    aces:'Aces 🎯', serveErrors:'Serve Errors ⊗', digs:'Digs 🛡', blocks:'Blocks ✋', assists:'Assists 🤝', passErrors:'Pass Errors 🙈' };
+  document.getElementById('editStatsFields').innerHTML = STAT_KEYS.map(k => `
+    <div class="form-row">
+      <label>${statLabels[k]}</label>
+      <input type="number" id="edit_${k}" min="0" value="${currentStats[k]||0}"
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;width:100%;font-family:'Barlow',sans-serif;font-size:1rem;outline:none;">
+    </div>`).join('');
+  document.getElementById('editStatsModal').classList.add('open');
+}
+
+function closeEditStats() { document.getElementById('editStatsModal').classList.remove('open'); }
+
+function saveEditStats() {
+  const { gameId, team, num, setKey } = editContext;
+  if (!setKey) { closeEditStats(); return; }
+  const game = state.games[gameId];
+  if (!game) return;
+  const playerKey = `${team}_${num}`;
+  if (!game.sets[setKey]) game.sets[setKey] = {};
+  const updated = emptyStats();
+  STAT_KEYS.forEach(k => { updated[k] = Math.max(0, parseInt(document.getElementById(`edit_${k}`)?.value) || 0); });
+  game.sets[setKey][playerKey] = updated;
+  saveToFirebase(); closeEditStats(); renderStatsView(); showToast('Stats updated ✓');
 }
 
 // ═══════════════════════════════════════════
@@ -1900,8 +1826,6 @@ function renderPlayerCards() {
   const search = document.getElementById('playerSearchInput').value.toLowerCase();
   const roster = state.roster[state.playersTeam] || [];
   const container = document.getElementById('playerCardsContainer');
-
-  // Aggregate all-game totals
   const playerTotals = {};
   Object.values(state.games).forEach(game => {
     Object.values(game.sets || {}).forEach(setData => {
@@ -1911,25 +1835,18 @@ function renderPlayerCards() {
       });
     });
   });
-
   const filtered = roster.filter(p => p.name.toLowerCase().includes(search) || String(p.num).includes(search));
-
-  if (!filtered.length) {
-    container.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><h3>No players found</h3></div>';
-    return;
-  }
-
+  if (!filtered.length) { container.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><h3>No players found</h3></div>'; return; }
   container.innerHTML = filtered.map(player => {
     const playerKey = `${state.playersTeam}_${player.num}`;
     const stats = playerTotals[playerKey] || emptyStats();
     const pct = stats.attempts > 0 ? ((stats.kills - stats.attackErrors) / stats.attempts).toFixed(3) : '.000';
-    return `
-    <div class="player-card">
+    return `<div class="player-card">
       <div class="pc-header">
         <div class="player-full-name">#${player.num} ${player.name}</div>
         <div style="display:flex;gap:6px;align-items:center;">
           <span style="font-size:0.7rem;color:var(--text-muted);font-weight:600;">${player.pos}</span>
-          <span class="player-team-badge ${state.playersTeam}">${state.playersTeam === 'varsity' ? 'V' : 'JV'}</span>
+          <span class="player-team-badge ${state.playersTeam}">${state.playersTeam==='varsity'?'V':'JV'}</span>
         </div>
       </div>
       <div class="pc-stats-grid">
@@ -1940,7 +1857,7 @@ function renderPlayerCards() {
         <div class="pc-stat"><div class="v" style="color:var(--gold);">${stats.aces}</div><div class="l">Aces</div></div>
         <div class="pc-stat"><div class="v" style="color:#8b5cf6;">${stats.blocks}</div><div class="l">Blks</div></div>
         <div class="pc-stat"><div class="v" style="color:#ef4444;">${stats.attackErrors}</div><div class="l">Errs</div></div>
-        <div class="pc-stat"><div class="v">${stats.serveErrors}</div><div class="l">SE</div></div>
+        <div class="pc-stat"><div class="v" style="color:#f59e0b;">${stats.passErrors||0}</div><div class="l">PE</div></div>
       </div>
     </div>`;
   }).join('');
@@ -1952,56 +1869,41 @@ function renderPlayerCards() {
 function renderGamesList() {
   const container = document.getElementById('savedGamesList');
   const games = Object.values(state.games).sort((a,b) => b.created - a.created);
-  if (!games.length) {
-    container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">No games yet. Create your first match above.</p>';
-    return;
-  }
+  if (!games.length) { container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">No games yet. Create your first match above.</p>'; return; }
   container.innerHTML = games.map(g => `
     <div class="game-item ${state.activeGameId === g.id ? 'active' : ''}" onclick="loadMatch('${g.id}')">
       <div class="game-item-info">
         <div class="game-opponent">vs ${g.opponent}</div>
-        <div class="game-meta">${g.date || 'No date'} · ${g.location || 'Home'} · ${Object.keys(g.sets||{1:{}}).length} sets${g.complete ? ' · ✓ Complete' : ' · Active'}</div>
+        <div class="game-meta">${g.date||'No date'} · ${g.location||'Home'} · ${Object.keys(g.sets||{}).filter(k=>Number(k)>0).length} sets${g.complete?' · ✓ Complete':' · Active'}</div>
       </div>
       <button class="delete-btn" onclick="deleteMatch('${g.id}', event)">🗑</button>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
 
+// ═══════════════════════════════════════════
+// ROSTER MANAGEMENT
+// ═══════════════════════════════════════════
 function bulkImportRoster() {
   const team = document.getElementById('bulkTeamSelect').value;
   const raw = document.getElementById('bulkRosterInput').value.trim();
   const statusEl = document.getElementById('bulkImportStatus');
   if (!raw) { statusEl.textContent = '⚠ Paste a roster first.'; return; }
-
   const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  const players = [];
-  const errors = [];
-
+  const players = [], errors = [];
   lines.forEach((line, i) => {
-    // Support comma or tab separated
     const parts = line.split(/,|\t/).map(p => p.trim());
-    if (parts.length < 2) { errors.push(`Line ${i+1}: "${line}"`); return; }
+    if (parts.length < 2) { errors.push(`Line ${i+1}`); return; }
     const num = parseInt(parts[0]);
-    if (isNaN(num)) { errors.push(`Line ${i+1}: bad number "${parts[0]}"`); return; }
-    const name = parts[1];
-    const pos = parts[2] || 'OH';
-    players.push({ num, name, pos });
+    if (isNaN(num)) { errors.push(`Line ${i+1}`); return; }
+    players.push({ num, name: parts[1], pos: parts[2] || 'OH' });
   });
-
-  if (!players.length) {
-    statusEl.textContent = '⚠ No valid players found. Check format.';
-    return;
-  }
-
+  if (!players.length) { statusEl.textContent = '⚠ No valid players found.'; return; }
   players.sort((a,b) => a.num - b.num);
   state.roster[team] = players;
-  saveToFirebase();
-  renderAll();
-
+  saveToFirebase(); renderAll();
   const msg = `✓ Imported ${players.length} players to ${team}${errors.length ? ` (${errors.length} skipped)` : ''}`;
   statusEl.style.color = errors.length ? 'var(--orange)' : 'var(--green)';
-  statusEl.textContent = msg;
-  showToast(msg);
+  statusEl.textContent = msg; showToast(msg);
 }
 
 function prefillBulkRoster() {
@@ -2010,7 +1912,6 @@ function prefillBulkRoster() {
   if (!roster.length) { showToast('No roster loaded yet'); return; }
   document.getElementById('bulkRosterInput').value = roster.map(p => `${p.num}, ${p.name}, ${p.pos}`).join('\n');
 }
-
 
 function addPlayer() {
   const team = document.getElementById('rosterTeamSelect').value;
@@ -2023,9 +1924,7 @@ function addPlayer() {
   state.roster[team].sort((a,b) => a.num - b.num);
   document.getElementById('rosterNum').value = '';
   document.getElementById('rosterName').value = '';
-  saveToFirebase();
-  renderPlayerChips();
-  renderPlayerCards();
+  saveToFirebase(); renderPlayerChips(); renderPlayerCards();
   showToast(`${name} added to ${team}!`);
 }
 
@@ -2033,7 +1932,6 @@ function addPlayer() {
 // MASTER RENDER
 // ═══════════════════════════════════════════
 function renderAll() {
-  // Track tab
   const hasActive = !!state.activeGameId && !!state.games[state.activeGameId];
   document.getElementById('noMatchState').style.display = hasActive ? 'none' : 'block';
   document.getElementById('trackingState').style.display = hasActive ? 'block' : 'none';
@@ -2043,13 +1941,9 @@ function renderAll() {
     document.getElementById('oppScoreLabel').textContent = game.opponent.split(' ')[0].toUpperCase();
     document.getElementById('currentSetNum').textContent = state.currentSet;
     document.getElementById('scoreSetLabel').textContent = state.currentSet;
-    renderPlayerChips();
-    renderTrackingButtons();
-    renderActivityLog();
-    renderSetScoreSummary();
+    renderPlayerChips(); renderTrackingButtons(); renderActivityLog(); renderSetScoreSummary();
   }
-  renderGamesList();
-  renderPlayerCards();
+  renderGamesList(); renderPlayerCards();
 }
 
 // ═══════════════════════════════════════════
@@ -2058,8 +1952,7 @@ function renderAll() {
 let toastTimer;
 function showToast(msg) {
   const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
+  el.textContent = msg; el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
 }
