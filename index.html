@@ -1152,9 +1152,11 @@
 
   <div class="setup-card">
     <h2>📂 Saved Games</h2>
-    <div class="games-list" id="savedGamesList">
-      <p style="color:var(--text-muted);font-size:0.85rem;">No games yet. Create your first match above.</p>
+    <div style="background:rgba(240,179,35,0.08);border:1px solid rgba(240,179,35,0.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:0.8rem;color:#f0b323;line-height:1.5;">
+      ⚠ If your set stats aren't showing, tap below to fix Set 0 → Set 1 in existing games.
+      <br><button class="btn-secondary" style="margin-top:8px;width:100%;text-align:center;" onclick="migrateSetZero()">🔧 Fix Set 0 Data</button>
     </div>
+    <div class="games-list" id="savedGamesList"></div>
   </div>
 
   <div class="setup-card">
@@ -1883,6 +1885,31 @@ function renderGamesList() {
 // ═══════════════════════════════════════════
 // ROSTER MANAGEMENT
 // ═══════════════════════════════════════════
+function migrateSetZero() {
+  let fixed = 0;
+  Object.values(state.games).forEach(game => {
+    if (game.sets && game.sets['0']) {
+      // Merge set 0 into set 1
+      if (!game.sets['1']) game.sets['1'] = {};
+      const set0 = game.sets['0'];
+      Object.entries(set0).forEach(([playerKey, stats]) => {
+        if (!game.sets['1'][playerKey]) game.sets['1'][playerKey] = emptyStats();
+        STAT_KEYS.forEach(k => game.sets['1'][playerKey][k] += stats[k] || 0);
+      });
+      delete game.sets['0'];
+      fixed++;
+    }
+    if (game.scores && game.scores['0']) {
+      if (!game.scores['1']) game.scores['1'] = game.scores['0'];
+      delete game.scores['0'];
+    }
+  });
+  if (fixed === 0) { showToast('No Set 0 data found — already clean!'); return; }
+  saveToFirebase();
+  renderAll();
+  showToast(`Fixed ${fixed} game(s) — Set 0 merged into Set 1 ✓`);
+}
+
 function bulkImportRoster() {
   const team = document.getElementById('bulkTeamSelect').value;
   const raw = document.getElementById('bulkRosterInput').value.trim();
