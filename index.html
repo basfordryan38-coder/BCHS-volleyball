@@ -1436,7 +1436,12 @@ function saveFirebaseConfig() {
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `tab-${tab}`));
-  if (tab === 'stats') renderStatsView();
+  if (tab === 'stats') {
+    // Force debug message into setToggle immediately
+    const toggle = document.getElementById('setToggle');
+    if (toggle) toggle.innerHTML = `<div style="color:#f59e0b;font-size:0.75rem;">Loading... games:${Object.keys(state.games).length} statsGameId:${state.statsGameId}</div>`;
+    renderStatsView();
+  }
   if (tab === 'players') renderPlayerCards();
   if (tab === 'games') renderGamesList();
 }
