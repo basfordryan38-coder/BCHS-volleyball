@@ -1367,6 +1367,9 @@ async function loadFromFirebase() {
         }
       }
       if (state.activeGameId && !state.games[state.activeGameId]) state.activeGameId = null;
+      // If stats tab is currently visible, re-render it now that data is loaded
+      const statsTab = document.getElementById('tab-stats');
+      if (statsTab && statsTab.classList.contains('active')) renderStatsView();
       renderAll();
       showToast('Loaded from Firebase ✓');
     }
@@ -1436,12 +1439,7 @@ function saveFirebaseConfig() {
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `tab-${tab}`));
-  if (tab === 'stats') {
-    // Force debug message into setToggle immediately
-    const toggle = document.getElementById('setToggle');
-    if (toggle) toggle.innerHTML = `<div style="color:#f59e0b;font-size:0.75rem;">Loading... games:${Object.keys(state.games).length} statsGameId:${state.statsGameId}</div>`;
-    renderStatsView();
-  }
+  if (tab === 'stats') renderStatsView();
   if (tab === 'players') renderPlayerCards();
   if (tab === 'games') renderGamesList();
 }
@@ -1756,9 +1754,7 @@ function renderSetToggle() {
   const rawKeys = Object.keys(game.sets || {});
   const sets = rawKeys.map(Number).filter(n => n > 0).sort((a,b) => a-b).map(String);
   const toggle = document.getElementById('setToggle');
-  // DEBUG — remove after fix confirmed
-  toggle.innerHTML = `<div style="font-size:0.7rem;color:#f59e0b;margin-bottom:6px;">sets raw keys: [${rawKeys.join(', ')}] → filtered: [${sets.join(', ')}]</div>`
-    + `<button class="set-toggle-btn ${state.statsSetView==='total'?'active':''}" onclick="setStatsSetView('total')">Total</button>`
+  toggle.innerHTML = `<button class="set-toggle-btn ${state.statsSetView==='total'?'active':''}" onclick="setStatsSetView('total')">Total</button>`
     + sets.map(s => `<div style="display:flex;align-items:center;gap:2px;">
       <button class="set-toggle-btn ${state.statsSetView===s?'active':''}" onclick="setStatsSetView('${s}')">Set ${s}</button>
       <button onclick="deleteSet('${s}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.7rem;padding:2px 6px;border-radius:4px;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='var(--text-muted)'">🗑</button>
