@@ -475,7 +475,9 @@ async function saveGame(gameId) {
 }
 
 async function saveRoster() {
-  await fbSet('/volleyball/roster', DB.roster);
+  const res = await fbSet('/volleyball/roster', DB.roster);
+  if (res === null || res === undefined) throw new Error('Firebase write returned null');
+  return res;
 }
 
 // ═══════════════════════════════
@@ -874,6 +876,8 @@ async function bulkImport() {
   const team = document.getElementById('bulkTeam').value;
   const raw = document.getElementById('bulkText').value.trim();
   const statusEl = document.getElementById('bulkStatus');
+  statusEl.style.color = 'var(--muted)';
+  statusEl.textContent = 'Importing...';
   if (!raw) { statusEl.textContent='⚠ Paste a roster first.'; return; }
   const players=[], errors=[];
   raw.split('\n').map(l=>l.trim()).filter(l=>l).forEach((line,i)=>{
@@ -883,14 +887,19 @@ async function bulkImport() {
     if(isNaN(num)){errors.push(i+1);return;}
     players.push({num,name:parts[1],pos:parts[2]||'OH'});
   });
-  if(!players.length){statusEl.textContent='⚠ No valid players.';return;}
+  if(!players.length){statusEl.textContent='⚠ No valid players found. Check format: number, name, position';return;}
   players.sort((a,b)=>a.num-b.num);
   DB.roster[team]=players;
-  await saveRoster();
-  renderAll();
-  statusEl.style.color=errors.length?'var(--orange)':'var(--green)';
-  statusEl.textContent=`✓ Imported ${players.length} to ${team}${errors.length?' ('+errors.length+' skipped)':''}`;
-  toast(`Imported ${players.length} players ✓`);
+  try {
+    await saveRoster();
+    statusEl.style.color = errors.length ? 'var(--orange)' : 'var(--green)';
+    statusEl.textContent = `✓ Saved ${players.length} players to ${team} in Firebase${errors.length?' ('+errors.length+' lines skipped)':''}`;
+    toast(`Imported ${players.length} players ✓`);
+    renderAll();
+  } catch(e) {
+    statusEl.style.color = 'var(--red)';
+    statusEl.textContent = '✗ Firebase save failed — check connection';
+  }
 }
 
 function prefillRoster() {
