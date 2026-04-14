@@ -450,6 +450,13 @@ async function boot() {
         DB.roster.jv = fixArray(data.roster.jv);
       }
     }
+    // After loading, immediately re-save roster as proper arrays to fix Firebase format
+    if (DB.roster.varsity.length || DB.roster.jv.length) {
+      await fetch(`${FB_URL}/volleyball/roster.json?auth=${FB_KEY}`, {
+        method: 'PUT',
+        body: JSON.stringify(DB.roster)
+      });
+    }
     if (Object.keys(DB.games).length) {
       statsGameId = Object.values(DB.games).sort((a,b)=>b.created-a.created)[0].id;
     }
