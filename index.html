@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>BCHS Volleyball Stats</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root {
     --blue: #4A90D9; --blue-dark: #2f6fad; --blue-glow: rgba(74,144,217,0.25);
@@ -290,10 +291,11 @@
   </div>
   <div class="card">
     <h2>📤 Export / Import Data</h2>
-    <p style="font-size:0.8rem;color:var(--muted);line-height:1.5;margin-bottom:12px;">Export your data to share with another device or keep as a backup. Import to restore or load data.</p>
-    <button class="btn-primary" onclick="exportData()" style="margin-bottom:8px;">📥 Export All Data</button>
+    <p style="font-size:0.8rem;color:var(--muted);line-height:1.5;margin-bottom:12px;">Export stats to Excel for sharing, or export/import JSON to move data between devices.</p>
+    <button class="btn-primary" onclick="exportExcel()" style="margin-bottom:8px;">📊 Export Stats to Excel</button>
+    <button class="btn-primary" onclick="exportData()" style="margin-bottom:8px;background:var(--surface3);border:1px solid var(--border);">💾 Export Backup (JSON)</button>
     <label class="btn-secondary" style="cursor:pointer;">
-      📤 Import Data
+      📤 Import Data (JSON)
       <input type="file" accept=".json" onchange="importData(event)" style="display:none;">
     </label>
   </div>
@@ -398,6 +400,90 @@ window.onload = () => {
 // ═══════════════════════════════
 // EXPORT / IMPORT
 // ═══════════════════════════════
+function exportExcel() {
+  if (!Object.keys(DB.games).length) { toast('No games to export'); return; }
+
+  // Build season totals per player
+  const seasonTotals = {};
+  Object.values(DB.games).forEach(game => {
+    Object.values(game.sets || {}).forEach(sd => {
+      Object.entries(sd).forEach(([pk, stats]) => {
+        if (!seasonTotals[pk]) seasonTotals[pk] = emptyStats();
+        STAT_KEYS.forEach(k => seasonTotals[pk][k] += stats[k] || 0);
+      });
+    });
+  });
+
+  // Helper to get player name
+  function getPlayer(pk) {
+    const [team, num] = pk.split('_');
+    return DB.roster[team]?.find(p => p.num === parseInt(num));
+  }
+
+  function pct(s) {
+    return s.attempts > 0 ? ((s.kills - s.attackErrors) / s.attempts).toFixed(3) : '.000';
+  }
+
+  // ── Sheet 1: Season Stats ──
+  const seasonRows = [['#','Name','Team','Pos','K','E','TA','Pct','Ast','Ace','SE','Dig','Blk','PE']];
+  ['varsity','jv'].forEach(team => {
+    (DB.roster[team] || []).forEach(p => {
+      const pk = `${team}_${p.num}`;
+      const s = seasonTotals[pk] || emptyStats();
+      seasonRows.push([p.num, p.name, team==='varsity'?'Varsity':'JV', p.pos,
+        s.kills, s.attackErrors, s.attempts, pct(s),
+        s.assists, s.aces, s.serveErrors, s.digs, s.blocks, s.passErrors||0]);
+    });
+  });
+
+  // ── Sheet 2: Game-by-Game ──
+  const gameRows = [['Game','Date','Location','Result','Set','Player','Team','K','E','TA','Pct','Ast','Ace','SE','Dig','Blk','PE']];
+  Object.values(DB.games).sort((a,b)=>a.created-b.created).forEach(game => {
+    const sets = Object.keys(game.sets||{}).filter(k=>Number(k)>0).sort();
+    sets.forEach(sk => {
+      Object.entries(game.sets[sk]||{}).forEach(([pk,stats]) => {
+        const player = getPlayer(pk);
+        if (!player) return;
+        const [team] = pk.split('_');
+        const scores = game.scores || {};
+        const setScore = scores[sk] ? `${scores[sk].bchs}–${scores[sk].opp} ${scores[sk].win?'W':'L'}` : '—';
+        gameRows.push([
+          `vs ${game.opponent}`, game.date||'', game.location||'', setScore, `Set ${sk}`,
+          player.name, team==='varsity'?'Varsity':'JV',
+          stats.kills||0, stats.attackErrors||0, stats.attempts||0, pct(stats),
+          stats.assists||0, stats.aces||0, stats.serveErrors||0, stats.digs||0, stats.blocks||0, stats.passErrors||0
+        ]);
+      });
+    });
+  });
+
+  // ── Sheet 3: Match Scores ──
+  const scoreRows = [['Opponent','Date','Location','Set 1','Set 2','Set 3','Set 4','Set 5','Result']];
+  Object.values(DB.games).sort((a,b)=>a.created-b.created).forEach(game => {
+    const scores = game.scores || {};
+    const sets = [1,2,3,4,5].map(n => {
+      const sc = scores[String(n)];
+      return sc ? `${sc.bchs}–${sc.opp} ${sc.win?'W':'L'}` : '';
+    });
+    const wins = Object.values(scores).filter(s=>s.win).length;
+    const losses = Object.values(scores).filter(s=>!s.win).length;
+    scoreRows.push([`vs ${game.opponent}`, game.date||'', game.location||'', ...sets, `${wins}–${losses}`]);
+  });
+
+  // Build workbook using SheetJS
+  const XLSX = window.XLSX;
+  if (!XLSX) { toast('Loading Excel library...'); return; }
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(seasonRows), 'Season Stats');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(gameRows), 'Game by Game');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(scoreRows), 'Match Scores');
+
+  const date = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `BCHS-VB-Stats-${date}.xlsx`);
+  toast('Excel file exported ✓');
+}
+
 function exportData() {
   const blob = new Blob([JSON.stringify(DB, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
