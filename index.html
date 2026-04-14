@@ -475,9 +475,12 @@ async function saveGame(gameId) {
 }
 
 async function saveRoster() {
-  const res = await fbSet('/volleyball/roster', DB.roster);
-  if (res === null || res === undefined) throw new Error('Firebase write returned null');
-  return res;
+  const response = await fetch(`${FB_URL}/volleyball/roster.json?auth=${FB_KEY}`, {
+    method: 'PUT',
+    body: JSON.stringify(DB.roster)
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return await response.json();
 }
 
 // ═══════════════════════════════
