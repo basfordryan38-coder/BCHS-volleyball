@@ -300,15 +300,35 @@
     </label>
   </div>
   <div class="card">
-    <h2>👥 Bulk Import Roster</h2>
-    <div class="form-row"><label>Team</label><select id="bulkTeam"><option value="varsity">Varsity</option><option value="jv">JV</option></select></div>
-    <div class="form-row">
-      <label>One player per line: number, name, position</label>
-      <textarea id="bulkText" rows="10" placeholder="1, Kura Iiyoshi, S/RS&#10;2, Bryan Beltran, DS"></textarea>
+    <h2>⚡ Quick Entry — Historical Game</h2>
+    <p style="font-size:0.8rem;color:var(--muted);line-height:1.5;margin-bottom:14px;">Enter total stats for a past game. Stats go in as one set so they show in season totals.</p>
+    <div class="form-row"><label>Opponent</label><input type="text" id="qeOpp" placeholder="e.g. Scott"></div>
+    <div class="form-row"><label>Date</label><input type="date" id="qeDate"></div>
+    <div class="form-row"><label>Location</label>
+      <select id="qeLoc"><option value="home">Home</option><option value="away">Away</option><option value="neutral">Neutral</option></select>
     </div>
-    <button class="btn-primary" onclick="bulkImport()" style="margin-bottom:8px;">Import Roster</button>
-    <button class="btn-secondary" onclick="prefillRoster()">📋 Load Current Roster to Edit</button>
-    <div id="bulkStatus" style="margin-top:8px;font-size:0.8rem;"></div>
+    <div class="form-row"><label>Team</label>
+      <select id="qeTeam" onchange="renderQEPlayers()">
+        <option value="varsity">Varsity</option>
+        <option value="jv">JV</option>
+      </select>
+    </div>
+    <div id="qePlayers" style="margin:12px 0;"></div>
+    <button class="btn-primary" onclick="saveQuickEntry()">Save Game Stats</button>
+    <div id="qeStatus" style="margin-top:8px;font-size:0.8rem;"></div>
+  </div>
+
+```
+<div class="form-row"><label>Team</label><select id="bulkTeam"><option value="varsity">Varsity</option><option value="jv">JV</option></select></div>
+<div class="form-row">
+  <label>One player per line: number, name, position</label>
+  <textarea id="bulkText" rows="10" placeholder="1, Kura Iiyoshi, S/RS&#10;2, Bryan Beltran, DS"></textarea>
+</div>
+<button class="btn-primary" onclick="bulkImport()" style="margin-bottom:8px;">Import Roster</button>
+<button class="btn-secondary" onclick="prefillRoster()">📋 Load Current Roster to Edit</button>
+<div id="bulkStatus" style="margin-top:8px;font-size:0.8rem;"></div>
+```
+
   </div>
   <div class="card">
     <h2>➕ Add Single Player</h2>
@@ -522,7 +542,7 @@ function switchTab(tab) {
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`tab-${tab}`));
   if (tab==='stats') renderStats();
   if (tab==='players') renderPlayers();
-  if (tab==='games') renderGamesList();
+  if (tab==='games') { renderGamesList(); renderQEPlayers(); }
 }
 
 // ═══════════════════════════════
@@ -866,8 +886,80 @@ function renderGamesList() {
 }
 
 // ═══════════════════════════════
-// ROSTER
+// QUICK ENTRY
 // ═══════════════════════════════
+function renderQEPlayers() {
+  const team = document.getElementById('qeTeam').value;
+  const roster = DB.roster[team] || [];
+  const container = document.getElementById('qePlayers');
+  if (!roster.length) {
+    container.innerHTML = '<p style="color:var(--muted);font-size:0.8rem;">No roster loaded. Import roster first.</p>';
+    return;
+  }
+  container.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;gap:4px;margin-bottom:6px;padding:0 4px;">
+      <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);grid-column:span 2;">Player</div>
+      ${['K','E','TA','Ace','SE','Dig','Blk','Ast'].map(h=>`<div style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);text-align:center;">${h}</div>`).join('')}
+    </div>
+    ${roster.map(p => `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;gap:4px;margin-bottom:6px;align-items:center;">
+      <div style="grid-column:span 2;font-size:0.8rem;font-weight:600;padding:0 4px;">#${p.num} ${p.name.split(' ')[0]}</div>
+      ${['kills','attackErrors','attempts','aces','serveErrors','digs','blocks','assists'].map(stat =>
+        `<input type="number" min="0" value="0" id="qe_${team}_${p.num}_${stat}"
+          style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 4px;font-family:'Barlow Condensed',sans-serif;font-size:0.9rem;font-weight:700;text-align:center;outline:none;width:100%;">`
+      ).join('')}
+    </div>`).join('')}`;
+}
+
+function saveQuickEntry() {
+  const opp = document.getElementById('qeOpp').value.trim();
+  const date = document.getElementById('qeDate').value;
+  const loc = document.getElementById('qeLoc').value;
+  const team = document.getElementById('qeTeam').value;
+  const statusEl = document.getElementById('qeStatus');
+
+  if (!opp) { statusEl.style.color='var(--red)'; statusEl.textContent='⚠ Enter opponent name'; return; }
+
+  const roster = DB.roster[team] || [];
+  const id = 'game_' + Date.now();
+  const setData = {};
+
+  roster.forEach(p => {
+    const stats = emptyStats();
+    ['kills','attackErrors','attempts','aces','serveErrors','digs','blocks','assists'].forEach(stat => {
+      const el = document.getElementById(`qe_${team}_${p.num}_${stat}`);
+      stats[stat] = parseInt(el?.value) || 0;
+    });
+    // Only save players with at least one stat
+    const hasStats = Object.values(stats).some(v => v > 0);
+    if (hasStats) setData[`${team}_${p.num}`] = stats;
+  });
+
+  DB.games[id] = {
+    id, opponent: opp, date, location: loc,
+    sets: { '1': setData },
+    scores: {}, complete: true, created: Date.now()
+  };
+
+  saveDB();
+  if (!statsGameId) statsGameId = id;
+  renderAll();
+
+  // Reset form
+  document.getElementById('qeOpp').value = '';
+  roster.forEach(p => {
+    ['kills','attackErrors','attempts','aces','serveErrors','digs','blocks','assists'].forEach(stat => {
+      const el = document.getElementById(`qe_${team}_${p.num}_${stat}`);
+      if (el) el.value = '0';
+    });
+  });
+
+  statusEl.style.color = 'var(--green)';
+  statusEl.textContent = `✓ ${opp} saved with ${Object.keys(setData).length} players`;
+  toast(`Game vs ${opp} saved!`);
+}
+
+
 function bulkImport() {
   const team=document.getElementById('bulkTeam').value;
   const raw=document.getElementById('bulkText').value.trim();
