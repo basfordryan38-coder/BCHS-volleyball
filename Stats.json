@@ -598,7 +598,33 @@
           }
         }
       },
-      "scores": {},
+      "scores": {
+        "1": {
+          "bchs": 23,
+          "opp": 25,
+          "win": false
+        },
+        "2": {
+          "bchs": 25,
+          "opp": 20,
+          "win": true
+        },
+        "3": {
+          "bchs": 23,
+          "opp": 25,
+          "win": false
+        },
+        "4": {
+          "bchs": 25,
+          "opp": 12,
+          "win": true
+        },
+        "5": {
+          "bchs": 15,
+          "opp": 7,
+          "win": true
+        }
+      },
       "complete": true,
       "created": 1776343851144
     },
@@ -699,7 +725,23 @@
           }
         }
       },
-      "scores": {},
+      "scores": {
+        "1": {
+          "bchs": 12,
+          "opp": 25,
+          "win": false
+        },
+        "2": {
+          "bchs": 10,
+          "opp": 25,
+          "win": false
+        },
+        "3": {
+          "bchs": 12,
+          "opp": 25,
+          "win": false
+        }
+      },
       "complete": true,
       "created": 1776344074012
     },
@@ -800,7 +842,23 @@
           }
         }
       },
-      "scores": {},
+      "scores": {
+        "1": {
+          "bchs": 8,
+          "opp": 25,
+          "win": false
+        },
+        "2": {
+          "bchs": 22,
+          "opp": 25,
+          "win": false
+        },
+        "3": {
+          "bchs": 13,
+          "opp": 25,
+          "win": false
+        }
+      },
       "complete": true,
       "created": 1776344509142
     },
@@ -923,7 +981,23 @@
           }
         }
       },
-      "scores": {},
+      "scores": {
+        "1": {
+          "bchs": 16,
+          "opp": 25,
+          "win": false
+        },
+        "2": {
+          "bchs": 16,
+          "opp": 25,
+          "win": false
+        },
+        "3": {
+          "bchs": 14,
+          "opp": 25,
+          "win": false
+        }
+      },
       "complete": true,
       "created": 1776346134411
     },
@@ -1024,7 +1098,33 @@
           }
         }
       },
-      "scores": {},
+      "scores": {
+        "1": {
+          "bchs": 24,
+          "opp": 26,
+          "win": false
+        },
+        "2": {
+          "bchs": 25,
+          "opp": 13,
+          "win": true
+        },
+        "3": {
+          "bchs": 24,
+          "opp": 26,
+          "win": false
+        },
+        "4": {
+          "bchs": 25,
+          "opp": 18,
+          "win": true
+        },
+        "5": {
+          "bchs": 10,
+          "opp": 15,
+          "win": false
+        }
+      },
       "complete": true,
       "created": 1776346468294
     },
@@ -1125,7 +1225,23 @@
           }
         }
       },
-      "scores": {},
+      "scores": {
+        "1": {
+          "bchs": 14,
+          "opp": 25,
+          "win": false
+        },
+        "2": {
+          "bchs": 13,
+          "opp": 25,
+          "win": false
+        },
+        "3": {
+          "bchs": 12,
+          "opp": 25,
+          "win": false
+        }
+      },
       "complete": true,
       "created": 1776346727257
     },
@@ -1215,9 +1331,142 @@
           }
         }
       },
-      "scores": {},
+      "scores": {
+        "1": {
+          "bchs": 14,
+          "opp": 25,
+          "win": false
+        },
+        "2": {
+          "bchs": 13,
+          "opp": 25,
+          "win": false
+        },
+        "3": {
+          "bchs": 18,
+          "opp": 25,
+          "win": false
+        }
+      },
       "complete": true,
       "created": 1776351449288
+    },
+    "game_1776354062021": {
+      "id": "game_1776354062021",
+      "opponent": "Collins",
+      "date": "2026-03-27",
+      "location": "away",
+      "sets": {
+        "1": {
+          "varsity_1": {
+            "kills": 1,
+            "attackErrors": 0,
+            "attempts": 1,
+            "aces": 0,
+            "serveErrors": 0,
+            "digs": 1,
+            "blocks": 1,
+            "assists": 0,
+            "passErrors": 0
+          },
+          "varsity_3": {
+            "kills": 0,
+            "attackErrors": 0,
+            "attempts": 0,
+            "aces": 0,
+            "serveErrors": 0,
+            "digs": 1,
+            "blocks": 0,
+            "assists": 5,
+            "passErrors": 0
+          },
+          "varsity_10": {
+            "kills": 2,
+            "attackErrors": 0,
+            "attempts": 2,
+            "aces": 2,
+            "serveErrors": 0,
+            "digs": 0,
+            "blocks": 3,
+            "assists": 0,
+            "passErrors": 0
+          },
+          "varsity_14": {
+            "kills": 1,
+            "attackErrors": 0,
+            "attempts": 1,
+            "aces": 0,
+            "serveErrors": 0,
+            "digs": 0,
+            "blocks": 2,
+            "assists": 0,
+            "passErrors": 0
+          },
+          "varsity_15": {
+            "kills": 2,
+            "attackErrors": 0,
+            "attempts": 2,
+            "aces": 4,
+            "serveErrors": 0,
+            "digs": 0,
+            "blocks": 0,
+            "assists": 0,
+            "passErrors": 0
+          },
+          "varsity_18": {
+            "kills": 0,
+            "attackErrors": 0,
+            "attempts": 0,
+            "aces": 0,
+            "serveErrors": 0,
+            "digs": 1,
+            "blocks": 6,
+            "assists": 0,
+            "passErrors": 0
+          },
+          "varsity_19": {
+            "kills": 3,
+            "attackErrors": 0,
+            "attempts": 3,
+            "aces": 1,
+            "serveErrors": 0,
+            "digs": 0,
+            "blocks": 1,
+            "assists": 0,
+            "passErrors": 0
+          },
+          "varsity_26": {
+            "kills": 2,
+            "attackErrors": 0,
+            "attempts": 2,
+            "aces": 0,
+            "serveErrors": 0,
+            "digs": 0,
+            "blocks": 0,
+            "assists": 0,
+            "passErrors": 0
+          }
+        }
+      },
+      "scores": {
+        "1": {
+          "bchs": 22,
+          "opp": 25,
+          "win": false
+        },
+        "2": {
+          "bchs": 17,
+          "opp": 25,
+          "win": false
+        },
+        "3": {
+          "bchs": 13,
+          "opp": 25,
+          "win": false
+        }
+      },
+      "complete": true,
+      "created": 1776354062022
     }
   },
   "roster": {
