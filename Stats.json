@@ -1128,6 +1128,96 @@
       "scores": {},
       "complete": true,
       "created": 1776346727257
+    },
+    "game_1776351449286": {
+      "id": "game_1776351449286",
+      "opponent": "Ryle",
+      "date": "2026-04-01",
+      "location": "away",
+      "sets": {
+        "1": {
+          "varsity_1": {
+            "kills": 0,
+            "attackErrors": 0,
+            "attempts": 0,
+            "aces": 1,
+            "serveErrors": 0,
+            "digs": 1,
+            "blocks": 0,
+            "assists": 4,
+            "passErrors": 0
+          },
+          "varsity_8": {
+            "kills": 0,
+            "attackErrors": 0,
+            "attempts": 0,
+            "aces": 1,
+            "serveErrors": 0,
+            "digs": 2,
+            "blocks": 0,
+            "assists": 0,
+            "passErrors": 0
+          },
+          "varsity_10": {
+            "kills": 2,
+            "attackErrors": 0,
+            "attempts": 2,
+            "aces": 0,
+            "serveErrors": 0,
+            "digs": 7,
+            "blocks": 0,
+            "assists": 0,
+            "passErrors": 0
+          },
+          "varsity_13": {
+            "kills": 0,
+            "attackErrors": 0,
+            "attempts": 0,
+            "aces": 1,
+            "serveErrors": 0,
+            "digs": 0,
+            "blocks": 0,
+            "assists": 2,
+            "passErrors": 0
+          },
+          "varsity_14": {
+            "kills": 0,
+            "attackErrors": 0,
+            "attempts": 0,
+            "aces": 0,
+            "serveErrors": 0,
+            "digs": 0,
+            "blocks": 1,
+            "assists": 0,
+            "passErrors": 0
+          },
+          "varsity_15": {
+            "kills": 1,
+            "attackErrors": 0,
+            "attempts": 1,
+            "aces": 0,
+            "serveErrors": 0,
+            "digs": 3,
+            "blocks": 2,
+            "assists": 0,
+            "passErrors": 0
+          },
+          "varsity_18": {
+            "kills": 1,
+            "attackErrors": 0,
+            "attempts": 1,
+            "aces": 2,
+            "serveErrors": 0,
+            "digs": 0,
+            "blocks": 7,
+            "assists": 0,
+            "passErrors": 0
+          }
+        }
+      },
+      "scores": {},
+      "complete": true,
+      "created": 1776351449288
     }
   },
   "roster": {
