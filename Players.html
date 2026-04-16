@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BCHS Volleyball — Player Stats</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue: #4A90D9; --sky: #7EC8E3; --black: #080c10; --surface: #0e1520;
+    --surface2: #151f2e; --surface3: #1c2a3e; --border: #1e3050;
+    --text: #eef4ff; --muted: #6b8aaa; --green: #22c55e; --red: #ef4444;
+    --purple: #8b5cf6; --pink: #ec4899; --amber: #f59e0b; --orange: #f97316;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Barlow', sans-serif; background: var(--black); color: var(--text); min-height: 100vh; }
+
+/* HEADER */
+.header { background: var(–surface); border-bottom: 2px solid var(–blue); padding: 16px; text-align: center; box-shadow: 0 4px 20px rgba(74,144,217,0.2); }
+.header h1 { font-family: ‘Barlow Condensed’, sans-serif; font-weight: 900; font-size: 1.8rem; letter-spacing: 0.05em; }
+.header h1 span { color: var(–blue); }
+.header .season { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(–muted); margin-top: 4px; }
+.updated { font-size: 0.7rem; color: var(–muted); margin-top: 4px; }
+
+/* LOADING */
+.loading { text-align: center; padding: 60px 24px; color: var(–muted); }
+.spinner { width: 32px; height: 32px; border: 3px solid var(–surface3); border-top-color: var(–blue); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* TABS */
+.tabs { display: flex; background: var(–surface); border-bottom: 1px solid var(–border); position: sticky; top: 0; z-index: 10; }
+.tab { flex: 1; padding: 12px 8px; text-align: center; font-family: ‘Barlow Condensed’, sans-serif; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; color: var(–muted); border-bottom: 3px solid transparent; }
+.tab.active { color: var(–blue); border-bottom-color: var(–blue); }
+
+/* VIEWS */
+.view { display: none; padding: 16px; max-width: 800px; margin: 0 auto; }
+.view.active { display: block; }
+
+/* RECORD BANNER */
+.record-banner { background: linear-gradient(135deg, var(–surface) 0%, #0a1628 100%); border: 1px solid var(–blue); border-radius: 12px; padding: 16px; margin-bottom: 16px; display: flex; justify-content: space-around; text-align: center; }
+.record-stat { }
+.record-val { font-family: ‘Barlow Condensed’, sans-serif; font-weight: 900; font-size: 2.2rem; line-height: 1; }
+.record-val.w { color: var(–green); }
+.record-val.l { color: var(–red); }
+.record-val.pct { color: var(–sky); font-size: 1.6rem; }
+.record-lbl { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(–muted); margin-top: 4px; }
+
+/* MATCH CARDS */
+.match-card { background: var(–surface); border: 1px solid var(–border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+.match-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.match-opp { font-family: ‘Barlow Condensed’, sans-serif; font-weight: 700; font-size: 1.1rem; }
+.match-meta { font-size: 0.75rem; color: var(–muted); }
+.match-result { font-family: ‘Barlow Condensed’, sans-serif; font-weight: 900; font-size: 1.1rem; padding: 4px 12px; border-radius: 6px; }
+.match-result.win { background: rgba(34,197,94,0.15); color: var(–green); border: 1px solid var(–green); }
+.match-result.loss { background: rgba(239,68,68,0.15); color: var(–red); border: 1px solid var(–red); }
+.set-scores { display: flex; gap: 6px; flex-wrap: wrap; }
+.set-chip { background: var(–surface2); border: 1px solid var(–border); border-radius: 6px; padding: 4px 10px; text-align: center; }
+.set-chip.win { border-color: var(–green); }
+.set-chip.loss { border-color: var(–red); }
+.set-chip .sc-lbl { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(–muted); display: block; }
+.set-chip .sc-score { font-family: ‘Barlow Condensed’, sans-serif; font-weight: 900; font-size: 0.95rem; }
+.set-chip.win .sc-score { color: var(–green); }
+.set-chip.loss .sc-score { color: var(–red); }
+
+/* TEAM FILTER */
+.team-filter { display: flex; gap: 8px; margin-bottom: 14px; }
+.tfbtn { flex: 1; background: var(–surface2); border: 1px solid var(–border); border-radius: 8px; padding: 8px; font-family: ‘Barlow Condensed’, sans-serif; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; color: var(–muted); text-align: center; }
+.tfbtn.active { background: var(–blue); border-color: var(–blue); color: white; }
+
+/* LEADERBOARD */
+.tbl-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(–border); margin-bottom: 16px; }
+.stats-tbl { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 540px; }
+.stats-tbl th { background: var(–surface2); padding: 10px 8px; font-family: ‘Barlow Condensed’, sans-serif; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(–muted); text-align: center; border-bottom: 1px solid var(–border); white-space: nowrap; }
+.stats-tbl th:first-child { text-align: left; padding-left: 14px; }
+.stats-tbl td { padding: 10px 8px; text-align: center; border-bottom: 1px solid #0e1520; }
+.stats-tbl td:first-child { text-align: left; padding-left: 14px; }
+.stats-tbl tr:nth-child(1) td:first-child::before { content: ’🥇 ’; }
+.stats-tbl tr:nth-child(2) td:first-child::before { content: ’🥈 ’; }
+.stats-tbl tr:nth-child(3) td:first-child::before { content: ’🥉 ’; }
+.stats-tbl tr:last-child td { border-bottom: none; }
+.pcell { display: flex; align-items: center; gap: 8px; }
+.nbadge { background: var(–surface3); border-radius: 4px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-family: ‘Barlow Condensed’, sans-serif; font-weight: 700; font-size: 0.75rem; flex-shrink: 0; }
+
+/* PLAYER CARDS */
+.search-bar input { width: 100%; background: var(–surface2); border: 1px solid var(–border); border-radius: 8px; color: var(–text); padding: 10px 12px; font-family: ‘Barlow’, sans-serif; font-size: 0.9rem; outline: none; margin-bottom: 12px; }
+.pcard { background: var(–surface); border: 1px solid var(–border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.pcard-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.pcard-name { font-family: ‘Barlow Condensed’, sans-serif; font-weight: 700; font-size: 1.15rem; }
+.pcard-pos { font-size: 0.7rem; color: var(–muted); font-weight: 600; }
+.team-badge { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+.team-badge.varsity { background: rgba(74,144,217,0.2); color: var(–blue); border: 1px solid var(–blue); }
+.team-badge.jv { background: rgba(126,200,227,0.15); color: var(–sky); border: 1px solid var(–sky); }
+.pstat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pstat { background: var(–surface2); border-radius: 8px; padding: 8px 6px; text-align: center; }
+.pstat .v { font-family: ‘Barlow Condensed’, sans-serif; font-weight: 900; font-size: 1.3rem; line-height: 1; }
+.pstat .l { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(–muted); margin-top: 2px; }
+
+/* SECTION LABEL */
+.section-label { font-family: ‘Barlow Condensed’, sans-serif; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(–muted); margin-bottom: 8px; margin-top: 16px; }
+
+/* SORT BUTTONS */
+.sort-row { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.sort-btn { background: var(–surface2); border: 1px solid var(–border); border-radius: 6px; color: var(–muted); padding: 5px 10px; font-family: ‘Barlow Condensed’, sans-serif; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; }
+.sort-btn.active { background: var(–surface3); border-color: var(–sky); color: var(–sky); }
+
+.empty { text-align: center; padding: 48px 24px; color: var(–muted); font-size: 0.9rem; }
+</style>
+
+</head>
+<body>
+
+<div class="header">
+  <h1>BCHS <span>VB</span></h1>
+  <div class="season">2025–26 Season Stats</div>
+  <div class="updated" id="updatedLbl"></div>
+</div>
+
+<nav class="tabs">
+  <div class="tab active" data-tab="results" onclick="switchTab('results')">📅 Results</div>
+  <div class="tab" data-tab="leaders" onclick="switchTab('leaders')">🏆 Leaders</div>
+  <div class="tab" data-tab="players" onclick="switchTab('players')">👤 Players</div>
+</nav>
+
+<!-- RESULTS TAB -->
+
+<div class="view active" id="tab-results">
+  <div id="resultsLoading" class="loading"><div class="spinner"></div>Loading stats...</div>
+  <div id="resultsContent" style="display:none;">
+    <div class="team-filter">
+      <button class="tfbtn active" id="rV" onclick="setResultsTeam('varsity')">Varsity</button>
+      <button class="tfbtn" id="rJ" onclick="setResultsTeam('jv')">JV</button>
+    </div>
+    <div id="recordBanner"></div>
+    <div id="matchCards"></div>
+  </div>
+</div>
+
+<!-- LEADERS TAB -->
+
+<div class="view" id="tab-leaders">
+  <div class="team-filter">
+    <button class="tfbtn active" id="lV" onclick="setLeadersTeam('varsity')">Varsity</button>
+    <button class="tfbtn" id="lJ" onclick="setLeadersTeam('jv')">JV</button>
+  </div>
+  <div class="sort-row">
+    <button class="sort-btn active" onclick="setSortStat('kills')">Kills</button>
+    <button class="sort-btn" onclick="setSortStat('digs')">Digs</button>
+    <button class="sort-btn" onclick="setSortStat('assists')">Assists</button>
+    <button class="sort-btn" onclick="setSortStat('aces')">Aces</button>
+    <button class="sort-btn" onclick="setSortStat('blocks')">Blocks</button>
+    <button class="sort-btn" onclick="setSortStat('pct')">Hit %</button>
+  </div>
+  <div class="tbl-wrap">
+    <table class="stats-tbl">
+      <thead><tr><th>Player</th><th>K</th><th>E</th><th>TA</th><th>Pct</th><th>Ast</th><th>Ace</th><th>SE</th><th>Dig</th><th>Blk</th></tr></thead>
+      <tbody id="leadersTbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- PLAYERS TAB -->
+
+<div class="view" id="tab-players">
+  <div class="team-filter">
+    <button class="tfbtn active" id="pV" onclick="setPlayersTeam('varsity')">Varsity</button>
+    <button class="tfbtn" id="pJ" onclick="setPlayersTeam('jv')">JV</button>
+  </div>
+  <div class="search-bar"><input type="text" id="playerSearch" placeholder="Search by name or number..." oninput="renderPlayers()"></div>
+  <div id="playerCards"></div>
+</div>
+
+<script>
+let DATA = null;
+let resultsTeam = 'varsity';
+let leadersTeam = 'varsity';
+let playersTeam = 'varsity';
+let sortStat = 'kills';
+
+const STAT_KEYS = ['kills','attackErrors','attempts','aces','serveErrors','digs','blocks','assists','passErrors'];
+function emptyStats() { const o={}; STAT_KEYS.forEach(k=>o[k]=0); return o; }
+function pct(s) { return s.attempts>0?((s.kills-s.attackErrors)/s.attempts).toFixed(3):'.000'; }
+
+// ── LOAD DATA ──
+async function loadData() {
+  try {
+    const res = await fetch('stats.json?v=' + Date.now());
+    if (!res.ok) throw new Error('Not found');
+    DATA = await res.json();
+    document.getElementById('updatedLbl').textContent = 'Last updated: ' + new Date().toLocaleDateString();
+    document.getElementById('resultsLoading').style.display = 'none';
+    document.getElementById('resultsContent').style.display = 'block';
+    renderAll();
+  } catch(e) {
+    document.getElementById('resultsLoading').innerHTML =
+      '<div style="color:var(--muted);font-size:0.85rem;line-height:1.6;">Stats not available yet.<br>Check back after the next game!</div>';
+  }
+}
+
+window.onload = loadData;
+
+// ── TABS ──
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===`tab-${tab}`));
+}
+
+// ── AGGREGATE STATS ──
+function getSeasonTotals() {
+  const totals = {};
+  if (!DATA) return totals;
+  Object.values(DATA.games||{}).forEach(game => {
+    Object.values(game.sets||{}).forEach(sd => {
+      Object.entries(sd).forEach(([pk, stats]) => {
+        if (!totals[pk]) totals[pk] = emptyStats();
+        STAT_KEYS.forEach(k => totals[pk][k] += stats[k]||0);
+      });
+    });
+  });
+  return totals;
+}
+
+function getPlayer(pk) {
+  if (!DATA) return null;
+  const [team, num] = pk.split('_');
+  return DATA.roster[team]?.find(p => p.num === parseInt(num));
+}
+
+// ── RESULTS ──
+function setResultsTeam(t) {
+  resultsTeam = t;
+  document.getElementById('rV').classList.toggle('active', t==='varsity');
+  document.getElementById('rJ').classList.toggle('active', t==='jv');
+  renderResults();
+}
+
+function renderResults() {
+  if (!DATA) return;
+  const games = Object.values(DATA.games||{}).sort((a,b)=>b.created-a.created);
+
+  // Record
+  const scores = games.flatMap(g => Object.values(g.scores||{}));
+  const wins = scores.filter(s=>s.win).length;
+  const losses = scores.filter(s=>!s.win).length;
+  const winPct = (wins+losses) > 0 ? (wins/(wins+losses)*100).toFixed(0)+'%' : '—';
+
+  document.getElementById('recordBanner').innerHTML = `
+    <div class="record-banner">
+      <div class="record-stat"><div class="record-val w">${wins}</div><div class="record-lbl">Set Wins</div></div>
+      <div class="record-stat"><div class="record-val l">${losses}</div><div class="record-lbl">Set Losses</div></div>
+      <div class="record-stat"><div class="record-val pct">${winPct}</div><div class="record-lbl">Win %</div></div>
+      <div class="record-stat"><div class="record-val" style="color:var(--sky);">${games.length}</div><div class="record-lbl">Matches</div></div>
+    </div>`;
+
+  if (!games.length) { document.getElementById('matchCards').innerHTML = '<div class="empty">No matches yet.</div>'; return; }
+
+  document.getElementById('matchCards').innerHTML = games.map(g => {
+    const gScores = g.scores || {};
+    const sets = Object.keys(gScores).sort();
+    const gWins = sets.filter(s=>gScores[s].win).length;
+    const gLosses = sets.length - gWins;
+    const result = gWins > gLosses ? 'win' : 'loss';
+    const setChips = sets.map(s => {
+      const sc = gScores[s];
+      return `<div class="set-chip ${sc.win?'win':'loss'}"><span class="sc-lbl">Set ${s}</span><span class="sc-score">${sc.bchs}–${sc.opp}</span></div>`;
+    }).join('');
+    return `<div class="match-card">
+      <div class="match-header">
+        <div>
+          <div class="match-opp">vs ${g.opponent}</div>
+          <div class="match-meta">${g.date||''} · ${g.location||''}</div>
+        </div>
+        <div class="match-result ${result}">${gWins}–${gLosses}</div>
+      </div>
+      ${sets.length ? `<div class="set-scores">${setChips}</div>` : '<div style="font-size:0.8rem;color:var(--muted);">No set scores recorded</div>'}
+    </div>`;
+  }).join('');
+}
+
+// ── LEADERS ──
+function setLeadersTeam(t) {
+  leadersTeam = t;
+  document.getElementById('lV').classList.toggle('active', t==='varsity');
+  document.getElementById('lJ').classList.toggle('active', t==='jv');
+  renderLeaders();
+}
+
+function setSortStat(stat) {
+  sortStat = stat;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.toggle('active', b.textContent.toLowerCase().includes(stat) || (stat==='pct'&&b.textContent.includes('%'))));
+  renderLeaders();
+}
+
+function renderLeaders() {
+  if (!DATA) return;
+  const totals = getSeasonTotals();
+  const roster = DATA.roster[leadersTeam] || [];
+  let rows = roster.map(p => {
+    const pk = `${leadersTeam}_${p.num}`;
+    const s = totals[pk] || emptyStats();
+    return { p, s, pct: pct(s) };
+  });
+
+  rows.sort((a,b) => {
+    if (sortStat === 'pct') return parseFloat(b.pct) - parseFloat(a.pct);
+    return (b.s[sortStat]||0) - (a.s[sortStat]||0);
+  });
+
+  const tbody = document.getElementById('leadersTbody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="10" class="empty">No players</td></tr>'; return; }
+  tbody.innerHTML = rows.map(({p,s}) => `
+    <tr>
+      <td><div class="pcell"><div class="nbadge">${p.num}</div><span>${p.name.split(' ').map((n,i)=>i===0?n[0]+'.':n).join(' ')}</span></div></td>
+      <td style="color:var(--green);font-weight:600;">${s.kills}</td>
+      <td>${s.attackErrors}</td><td>${s.attempts}</td>
+      <td style="color:var(--sky);font-weight:600;">${pct(s)}</td>
+      <td style="color:var(--pink);">${s.assists}</td>
+      <td style="color:var(--sky);">${s.aces}</td>
+      <td>${s.serveErrors}</td>
+      <td style="color:#3b82f6;">${s.digs}</td>
+      <td style="color:var(--purple);">${s.blocks}</td>
+    </tr>`).join('');
+}
+
+// ── PLAYERS ──
+function setPlayersTeam(t) {
+  playersTeam = t;
+  document.getElementById('pV').classList.toggle('active', t==='varsity');
+  document.getElementById('pJ').classList.toggle('active', t==='jv');
+  renderPlayers();
+}
+
+function renderPlayers() {
+  if (!DATA) return;
+  const search = document.getElementById('playerSearch').value.toLowerCase();
+  const roster = DATA.roster[playersTeam] || [];
+  const totals = getSeasonTotals();
+  const container = document.getElementById('playerCards');
+  const filtered = roster.filter(p => p.name.toLowerCase().includes(search) || String(p.num).includes(search));
+  if (!filtered.length) { container.innerHTML = '<div class="empty">No players found.</div>'; return; }
+  container.innerHTML = filtered.map(p => {
+    const pk = `${playersTeam}_${p.num}`;
+    const s = totals[pk] || emptyStats();
+    return `<div class="pcard">
+      <div class="pcard-header">
+        <div>
+          <div class="pcard-name">#${p.num} ${p.name}</div>
+          <div class="pcard-pos">${p.pos}</div>
+        </div>
+        <span class="team-badge ${playersTeam}">${playersTeam==='varsity'?'Varsity':'JV'}</span>
+      </div>
+      <div class="pstat-grid">
+        <div class="pstat"><div class="v" style="color:var(--green);">${s.kills}</div><div class="l">Kills</div></div>
+        <div class="pstat"><div class="v" style="color:var(--sky);">${pct(s)}</div><div class="l">Hit %</div></div>
+        <div class="pstat"><div class="v" style="color:#3b82f6;">${s.digs}</div><div class="l">Digs</div></div>
+        <div class="pstat"><div class="v" style="color:var(--pink);">${s.assists}</div><div class="l">Assists</div></div>
+        <div class="pstat"><div class="v" style="color:var(--sky);">${s.aces}</div><div class="l">Aces</div></div>
+        <div class="pstat"><div class="v" style="color:var(--purple);">${s.blocks}</div><div class="l">Blocks</div></div>
+        <div class="pstat"><div class="v" style="color:var(--red);">${s.attackErrors}</div><div class="l">Atk Err</div></div>
+        <div class="pstat"><div class="v" style="color:var(--amber);">${s.passErrors||0}</div><div class="l">Pass Err</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAll() {
+  renderResults();
+  renderLeaders();
+  renderPlayers();
+}
+</script>
+
+</body>
+</html>
