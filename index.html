@@ -877,13 +877,52 @@ function renderGamesList() {
   const el=document.getElementById('gamesList');
   const games=Object.values(DB.games).sort((a,b)=>b.created-a.created);
   if(!games.length){el.innerHTML='<p style="color:var(--muted);font-size:0.85rem;">No games yet.</p>';return;}
-  el.innerHTML=games.map(g=>`
-    <div class="gitem${activeGameId===g.id?' active':''}" onclick="loadMatch('${g.id}')">
-      <div><div class="gitem-name">vs ${g.opponent}</div>
-      <div class="gitem-meta">${g.date||'No date'} · ${g.location||'home'} · ${Object.keys(g.sets||{}).filter(k=>Number(k)>0).length} sets${g.complete?' · ✓':' · Active'}</div></div>
-      <button class="del-btn" onclick="deleteMatch('${g.id}',event)">🗑</button>
-    </div>`).join('');
+  el.innerHTML=games.map(g=>{
+    const scores=g.scores||{};
+    const sets=Object.keys(scores).sort();
+    const scoreChips=sets.map(s=>{const sc=scores[s];return`<span style="font-family:'Barlow Condensed',sans-serif;font-size:0.75rem;font-weight:700;padding:2px 6px;border-radius:4px;margin-right:4px;background:${sc.win?'rgba(34,197,94,0.15)':'rgba(239,68,68,0.15)'};color:${sc.win?'var(--green)':'var(--red)'};">S${s}: ${sc.bchs}–${sc.opp}</span>`;}).join('');
+    return`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="cursor:pointer;" onclick="loadMatch('${g.id}')">
+          <div class="gitem-name">vs ${g.opponent}</div>
+          <div class="gitem-meta">${g.date||'No date'} · ${g.location||'home'}${g.complete?' · ✓':' · Active'}</div>
+        </div>
+        <button class="del-btn" onclick="deleteMatch('${g.id}',event)">🗑</button>
+      </div>
+      ${scoreChips ? `<div style="margin-bottom:8px;">${scoreChips}</div>` : ''}
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <input type="number" id="es_bchs_${g.id}" placeholder="BCHS" min="0" style="width:60px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 6px;font-family:'Barlow Condensed',sans-serif;font-size:0.9rem;font-weight:700;text-align:center;outline:none;">
+        <span style="color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-weight:700;">–</span>
+        <input type="number" id="es_opp_${g.id}" placeholder="OPP" min="0" style="width:60px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 6px;font-family:'Barlow Condensed',sans-serif;font-size:0.9rem;font-weight:700;text-align:center;outline:none;">
+        <select id="es_set_${g.id}" style="background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:5px 8px;font-family:'Barlow Condensed',sans-serif;font-size:0.8rem;outline:none;">
+          ${[1,2,3,4,5].map(n=>`<option value="${n}">Set ${n}</option>`).join('')}
+        </select>
+        <button onclick="addSetScore('${g.id}')" style="background:var(--blue);border:none;border-radius:6px;color:white;padding:5px 12px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:0.8rem;cursor:pointer;">Add Score</button>
+        ${sets.length ? `<button onclick="clearScores('${g.id}')" style="background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:5px 10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:0.75rem;cursor:pointer;">Clear</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
 }
+
+function addSetScore(gameId) {
+  const b=parseInt(document.getElementById(`es_bchs_${gameId}`)?.value);
+  const o=parseInt(document.getElementById(`es_opp_${gameId}`)?.value);
+  const s=document.getElementById(`es_set_${gameId}`)?.value;
+  if(isNaN(b)||isNaN(o)){toast('Enter both scores');return;}
+  const game=DB.games[gameId];
+  if(!game.scores)game.scores={};
+  game.scores[s]={bchs:b,opp:o,win:b>o};
+  saveDB(); renderGamesList(); renderStats();
+  toast(`Set ${s}: ${b}–${o} ${b>o?'W':'L'}`);
+}
+
+function clearScores(gameId) {
+  if(!confirm('Clear all set scores for this game?'))return;
+  DB.games[gameId].scores={};
+  saveDB(); renderGamesList(); renderStats();
+  toast('Scores cleared');
+}
+
 
 // ═══════════════════════════════
 // QUICK ENTRY
