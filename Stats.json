@@ -1463,6 +1463,11 @@
           "bchs": 13,
           "opp": 25,
           "win": false
+        },
+        "4": {
+          "bchs": 25,
+          "opp": 21,
+          "win": true
         }
       },
       "complete": true,
